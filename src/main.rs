@@ -65,4 +65,81 @@ mod tests {
         assert_eq!(entry.people.len(), 1);
         assert!(entry.people.contains("alice"));
     }
+
+    #[test]
+    fn test_extract_multiple_people() {
+        let mut entry = Entry::new("Worked with @alice, @bob, and @charlie".to_string());
+        entry.parse_annotations();
+
+        assert_eq!(entry.people.len(), 3);
+        assert!(entry.people.contains("alice"));
+        assert!(entry.people.contains("bob"));
+        assert!(entry.people.contains("charlie"));
+    }
+
+    #[test]
+    fn test_extract_people_with_punctuation() {
+        let mut entry = Entry::new("Talked to @alice! Then @bob? Finally @charlie".to_string());
+        entry.parse_annotations();
+
+        assert_eq!(entry.people.len(), 3);
+        assert!(entry.people.contains("alice"));
+        assert!(entry.people.contains("bob"));
+        assert!(entry.people.contains("charlie"));
+    }
+
+    #[test]
+    fn test_duplicate_people_are_deduplicated() {
+        let mut entry = Entry::new("@alice helped, then @alice helped again, and @alice was great!".to_string());
+        entry.parse_annotations();
+        
+        // Should only have one "alice" despite being mentioned 3 times
+        assert_eq!(entry.people.len(), 1);
+        assert!(entry.people.contains("alice"));
+    }
+
+    #[test]
+    fn test_no_people_mentioned() {
+        let mut entry = Entry::new("Just worked alone today on some code".to_string());
+        entry.parse_annotations();
+        
+        assert!(entry.people.is_empty());
+    }
+
+    #[test]
+    fn test_ignore_standalone_at_symbol() {
+        let mut entry = Entry::new("The @ symbol alone or @ with space should be ignored".to_string());
+        entry.parse_annotations();
+        
+        assert!(entry.people.is_empty());
+    }
+
+    #[test]
+    fn test_people_with_numbers_and_underscores() {
+        let mut entry = Entry::new("Worked with @alice_smith and @bob123 today".to_string());
+        entry.parse_annotations();
+        
+        assert_eq!(entry.people.len(), 2);
+        assert!(entry.people.contains("alice_smith"));
+        assert!(entry.people.contains("bob123"));
+    }
+    
+    #[test]
+    fn test_mixed_content() {
+        let content = r#"
+        Today was productive! Met with @sarah in the morning about the project.
+        @mike joined us later, and we brainstormed solutions.
+        Email from @jennifer_parker arrived at 3pm.
+        Need to follow up with @sam_w tomorrow.
+        "#.to_string();
+        
+        let mut entry = Entry::new(content);
+        entry.parse_annotations();
+        
+        assert_eq!(entry.people.len(), 4);
+        assert!(entry.people.contains("sarah"));
+        assert!(entry.people.contains("mike"));
+        assert!(entry.people.contains("jennifer_parker"));
+        assert!(entry.people.contains("sam_w"));
+    }
 }
