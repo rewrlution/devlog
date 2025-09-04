@@ -28,9 +28,13 @@ impl Entry {
     }
 
     /// Parse annotations from content and populate metadata
+    /// @alice -> people
+    /// ::search-engine -> projects
+    /// +motivation -> tags
     pub fn parse_annotations(&mut self) {
-        // Extract @mentions (people)
         self.extract_people();
+        self.extract_projects();
+        self.extract_tags();
     }
 
     fn extract_people(&mut self) {
@@ -41,9 +45,29 @@ impl Entry {
         for captures in re.captures_iter(&self.content) {
             // captures[0] is the full match (@alice)
             // captures[1] is the first capture group (alice)
-            if let Some(person_match) = captures.get(1) {
-                let person = person_match.as_str().to_string();
+            if let Some(person) = captures.get(1) {
+                let person = person.as_str().to_string();
                 self.people.insert(person);
+            }
+        }
+    }
+
+    fn extract_projects(&mut self) {
+        let re = Regex::new(r"::(\w+)").unwrap();
+        for captures in re.captures_iter(&self.content) {
+            if let Some(project) = captures.get(1) {
+                let project = project.as_str().to_string();
+                self.projects.insert(project);
+            }
+        }
+    }
+
+    fn extract_tags(&mut self) {
+        let re = Regex::new(r"\+(\w+)").unwrap();
+        for captures in re.captures_iter(&self.content) {
+            if let Some(tag) = captures.get(1) {
+                let tag = tag.as_str().to_string();
+                self.tags.insert(tag);
             }
         }
     }
@@ -141,5 +165,47 @@ mod tests {
         assert!(entry.people.contains("mike"));
         assert!(entry.people.contains("jennifer_parker"));
         assert!(entry.people.contains("sam_w"));
+    }
+
+    #[test]
+    fn test_parse_project_annotations() {
+        let content = "Working on ::search_engine and ::auth_platform services".to_string();
+        let mut entry = Entry::new(content);
+        entry.parse_annotations();
+
+        assert_eq!(entry.projects.len(), 2);
+        assert!(entry.projects.contains("search_engine"));
+        assert!(entry.projects.contains("auth_platform"));
+    }
+
+    #[test]
+    fn test_parse_tag_annotations() {
+        let content = "Learned +rust and +azure_ai today. I feel very +excited!".to_string();
+        let mut entry = Entry::new(content);
+
+        entry.parse_annotations();
+
+        assert_eq!(entry.tags.len(), 3);
+        assert!(entry.tags.contains("rust"));
+        assert!(entry.tags.contains("azure_ai"));
+        assert!(entry.tags.contains("excited"));
+    }
+
+    #[test]
+    fn test_parse_mixed_annotations() {
+        let content = "Worked with @alice on ::search_service using +rust and +tokio".to_string();
+        let mut entry = Entry::new(content);
+        
+        entry.parse_annotations();
+        
+        assert_eq!(entry.people.len(), 1);
+        assert!(entry.people.contains("alice"));
+        
+        assert_eq!(entry.projects.len(), 1);
+        assert!(entry.projects.contains("search_service"));
+        
+        assert_eq!(entry.tags.len(), 2);
+        assert!(entry.tags.contains("rust"));
+        assert!(entry.tags.contains("tokio"));
     }
 }

@@ -15,11 +15,19 @@ A CLI journaling tool for you to capture your daily work, reflect with retros, a
 
 ## Installation
 
-*Installation instructions will be added once the tool is built.*
+_Installation instructions will be added once the tool is built._
 
 ## Quick Start
 
-*Usage examples will be added as features are implemented.*
+_Usage examples will be added as features are implemented._
+
+### Annotations
+
+Mentioning people with `@`:
+
+- `@alice`
+- `@alice, ..., @bob`
+- `@huijing_huang`, use underscore as space.
 
 ## License
 
