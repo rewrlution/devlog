@@ -3,6 +3,7 @@ use clap::{Parser, Subcommand};
 use crate::entry::Entry;
 use std::env;
 use std::fs;
+use std::path::PathBuf;
 use std::process::Command;
 
 /// DevLog - A journal CLI tool for developers
@@ -51,15 +52,34 @@ impl Cli {
         let mut entry = Entry::new(content);
         entry.parse_annotations();
 
+        // Get or crete the devlog directory
+        let devlog_dir = self.get_devlog_directory()?;
+        fs::create_dir_all(&devlog_dir)?;
+
         // Save to local markdown file
         let now = Utc::now();
         let date_str = now.format("%Y%m%d");
         let filename = format!("devlog-{}.md", date_str);
+        let filepath = devlog_dir.join(&filename);
 
-        fs::write(&filename, entry.to_markdown())?;
-        println!("Entry saved to {}", filename);
+        fs::write(&filepath, entry.to_markdown())?;
+        println!("Entry saved to {}", filepath.display());
         
         Ok(())
+    }
+
+    /// Get the appropriate devlog directory based on the platform
+    fn get_devlog_directory(&self) -> Result<PathBuf, Box<dyn std::error::Error>> {
+        let home_dir = dirs::home_dir()
+            .ok_or("Could not find home directory")?;
+
+        // All platforms use ~/Documents/devlog for user accessibility
+        // macOS: ~/Documents/devlog
+        // Windows: %USERPROFILE%\Documents\devlog
+        // Linux: ~/Documents/devlog
+        let devlog_dir = home_dir.join("Documents").join("devlog");
+
+        Ok(devlog_dir)
     }
 
     /// Open a text editor for the user to write content
