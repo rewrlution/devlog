@@ -1,10 +1,11 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Local};
 use std::collections::HashSet;
 use regex::Regex;
 
 pub struct Entry {
     pub id: String,
-    pub date: DateTime<Utc>,
+    pub created_at: DateTime<Local>,
+    pub updated_at: DateTime<Local>,
     pub content: String,
     pub tags: HashSet<String>,
     pub people: HashSet<String>,
@@ -14,12 +15,13 @@ pub struct Entry {
 impl Entry {
     /// Create a new entry with the given content
     pub fn new(content: String) -> Self {
-        let now = Utc::now();
+        let now = Local::now(); // Use local time instead of UTC
         let id = format!("{}", now.format("%Y%m%d"));
 
         Self {
             id,
-            date: now,
+            created_at: now,
+            updated_at: now,
             content,
             tags: HashSet::new(),
             people: HashSet::new(),
@@ -85,7 +87,9 @@ impl Entry {
 
         format!(
             r#"---
-date: {}
+id: {}
+created_at: {}
+updated_at: {}
 tags: [{}]
 people: [{}]
 projects: [{}]
@@ -93,7 +97,9 @@ projects: [{}]
 
 {}
 "#,
-            self.date.format("%Y-%m-%d UTC"),
+            self.id,
+            self.created_at.format("%Y-%m-%dT%H:%M:%S%:z"), // ISO 8601 with timezone
+            self.updated_at.format("%Y-%m-%dT%H:%M:%S%:z"),
             tags.join(", "),
             people.join(", "),
             projects.join(", "),
@@ -245,10 +251,14 @@ mod tests {
 
         // Just test that it contains the expected parts
         assert!(markdown.contains("---"));
-        assert!(markdown.contains("date:"));
+        assert!(markdown.contains("created_at:"));
+        assert!(markdown.contains("updated_at:"));
         assert!(markdown.contains("tags: [rust]") || markdown.contains("tags: [rust]"));
         assert!(markdown.contains("people: [alice, bob]") || markdown.contains("people: [bob, alice]"));
         assert!(markdown.contains("projects: [search_engine]"));
         assert!(markdown.contains("Worked with @alice and @bob on ::search_engine using +rust"));
+
+        // Check that timestamps are in ISO 8601 format with timezone
+        assert!(markdown.contains("T") && (markdown.contains("+") || markdown.contains("-")));
     }
 }
