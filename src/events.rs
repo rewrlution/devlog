@@ -4,7 +4,7 @@ use std::collections::HashSet;
 
 /// Events that can happen to an entry
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag="type", content="data")]
+#[serde(tag = "type", content = "data")]
 pub enum EntryEvent {
     Created {
         id: String,

@@ -1,9 +1,8 @@
 use crate::events::EntryEvent;
-use chrono::{DateTime, Local};
 use serde_json;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 /// Handle file storage for `entries` and `events`
 pub struct EntryStorage {
@@ -47,13 +46,17 @@ impl EntryStorage {
     }
 
     /// Append an event to the event log
-    pub fn append_event(&self, date: &str, event: &EntryEvent) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn append_event(
+        &self,
+        date: &str,
+        event: &EntryEvent,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let events_path = self.events_path(date);
         let event_json = serde_json::to_string(event)?;
 
         let mut file = OpenOptions::new()
-            .create(true)   // Create if doesn't exist
-            .append(true)   // Append to the end of a file
+            .create(true) // Create if doesn't exist
+            .append(true) // Append to the end of a file
             .open(&events_path)?;
 
         writeln!(file, "{}", event_json)?;
@@ -61,7 +64,11 @@ impl EntryStorage {
     }
 
     /// Save markdown content (overwrites existing)
-    pub fn save_markdown(&self, date: &str, content: &str) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn save_markdown(
+        &self,
+        date: &str,
+        content: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let markdown_path = self.markdown_path(date);
         fs::write(&markdown_path, content)?;
         Ok(())
@@ -92,10 +99,49 @@ impl EntryStorage {
         let markdown_path = self.markdown_path(date);
 
         if !markdown_path.exists() {
-            return Ok(None)
+            return Ok(None);
         }
 
         let content = fs::read_to_string(&markdown_path)?;
         Ok(Some(content))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::Local;
+    use tempfile::TempDir;
+
+    #[test]
+    fn test_storage_operations() -> Result<(), Box<dyn std::error::Error>> {
+        let temp_dir = TempDir::new()?;
+        let storage = EntryStorage::new(Some(temp_dir.path().to_path_buf()))?;
+
+        let now = Local::now();
+        let date = format!("{}", now.format("%Y%m%d"));
+
+        // Test event storage
+        let event = EntryEvent::Created {
+            id: date.to_string(),
+            content: "Test content".to_string(),
+            timestamp: now,
+        };
+
+        storage.append_event(&date, &event)?;
+
+        // Test event loading
+        let loaded_events = storage.load_events(&date)?;
+        assert_eq!(loaded_events.len(), 1);
+
+        // Test markdown storage
+        let markdown = "# Test Entry\n\nTest content";
+        storage.save_markdown(&date, markdown)?;
+
+        // Test markdown loading
+        let loaded_markdown = storage.load_markdown(&date)?;
+        assert_eq!(loaded_markdown, Some(markdown.to_string()));
+
+        Ok(())
     }
 }
