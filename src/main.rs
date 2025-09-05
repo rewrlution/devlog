@@ -1,14 +1,5 @@
-mod entry;
-mod cli;
-
-use clap::Parser;
-use cli::Cli;
+mod events;
 
 fn main() {
-    let cli = Cli::parse();
-
-    if let Err(e) = cli.handle_command() {
-        eprintln!("Error: {}", e);
-        std::process::exit(1);
-    }
+    println!("devlog");
 }

@@ -1,0 +1,3 @@
+# Development
+
+Formatting: `cargo fmt`.
