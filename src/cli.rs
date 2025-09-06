@@ -123,3 +123,24 @@ impl Cli {
         lines.join("\n").trim().to_string()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_template() {
+        let template = Cli::get_template();
+        assert!(template.contains("# Enter your journal entry"));
+        assert!(template.contains("@person"));
+        assert!(template.contains("::project"));
+        assert!(template.contains("+tag"));
+    }
+
+    #[test]
+    fn test_find_available_editor() {
+        let editor = Cli::find_available_editor();
+        // Should return one of our supported editors or fallback to vi
+        assert!(editor == "vi" || editor == "nano");
+    }
+}
