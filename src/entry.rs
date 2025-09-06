@@ -1,6 +1,6 @@
 use crate::annotations::{self, AnnotationParser, ParsedAnnotations};
 use crate::events::{self, EntryEvent};
-use crate::storage::EntryStorage;
+use crate::storage::{self, EntryStorage};
 use chrono::{DateTime, Local};
 
 /// Current state of an entry (derived from events)
@@ -146,5 +146,54 @@ impl Entry {
         }
 
         Some(entry)
+    }
+
+    /// Convert current state to markdown content
+    pub fn to_markdown(&self) -> String {
+        format!(
+            r#"---
+id: {}
+created_at: {}
+updated_at: {}
+tags: [{}]
+people: [{}]
+projects: [{}]
+---
+
+{}
+"#,
+            self.state.id,
+            self.state.created_at.format("%Y-%m-%dT%H:%M:%S%:z"),
+            self.state.updated_at.format("%Y-%m-%dT%H:%M:%S%:z"),
+            self.state.tags.join(", "),
+            self.state.people.join(", "),
+            self.state.projects.join(", "),
+            self.state.content,
+        )
+    }
+
+    /// Save entry to storage
+    pub fn save(&self, storage: &EntryStorage) -> Result<(), Box<dyn std::error::Error>> {
+        let date = &self.state.id;
+
+        // Save all events
+        for event in &self.events {
+            storage.append_event(date, event)?;
+        }
+
+        // Save current markdown
+        let markdown = self.to_markdown();
+        storage.save_markdown(date, &markdown)?;
+
+        Ok(())
+    }
+
+    /// Load entry from storage
+    pub fn load(
+        date: &str,
+        storage: &EntryStorage,
+    ) -> Result<Option<Self>, Box<dyn std::error::Error>> {
+        let events = storage.load_events(date)?;
+        Ok(Entry::from_events(events))
     }
 }
