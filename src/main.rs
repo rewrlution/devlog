@@ -1,7 +1,8 @@
 mod annotations;
+mod cli;
+mod entry;
 mod events;
 mod storage;
-mod entry;
 
 fn main() {
     println!("devlog");
