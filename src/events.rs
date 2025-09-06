@@ -24,6 +24,7 @@ pub enum EntryEvent {
 
 impl EntryEvent {
     /// Get the timestamp of when this event occured
+    #[allow(dead_code)]
     pub fn timestamp(&self) -> DateTime<Local> {
         match self {
             // * is the dereference operator in Rust
@@ -36,6 +37,7 @@ impl EntryEvent {
     }
 
     /// Get the entry ID this event belongs to
+    #[allow(dead_code)]
     pub fn entry_id(&self) -> Option<&str> {
         match self {
             EntryEvent::Created { id, .. } => Some(id),

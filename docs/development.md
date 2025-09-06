@@ -31,6 +31,14 @@ cargo build --release
 # Or install it to your cargo bin directory (~/.cargo/bin)
 cargo install --path .
 
+cargo build --release
+
+# Binary will be at target/release/devlog
+./target/release/devlog --help
+
+# Add to your `~/.zshrc`:
+alias devlog='cargo run --manifest-path /{your_path_to_the_repo}/devlog/Cargo.toml --'
+
 # Now you can run it directly (if ~/.cargo/bin is in your PATH)
 devlog --help
 devlog new -m "My first entry"
