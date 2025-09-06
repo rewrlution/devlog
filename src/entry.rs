@@ -2,7 +2,6 @@ use crate::annotations::{self, AnnotationParser, ParsedAnnotations};
 use crate::events::{self, EntryEvent};
 use crate::storage::EntryStorage;
 use chrono::{DateTime, Local};
-use std::collections::HashSet;
 
 /// Current state of an entry (derived from events)
 #[derive(Debug, Clone)]
@@ -11,9 +10,9 @@ pub struct EntryState {
     pub created_at: DateTime<Local>,
     pub updated_at: DateTime<Local>,
     pub content: String,
-    pub tags: HashSet<String>,
-    pub people: HashSet<String>,
-    pub projects: HashSet<String>,
+    pub tags: Vec<String>,
+    pub people: Vec<String>,
+    pub projects: Vec<String>,
 }
 
 impl Default for EntryState {
@@ -24,9 +23,9 @@ impl Default for EntryState {
             created_at: now,
             updated_at: now,
             content: String::new(),
-            tags: HashSet::new(),
-            people: HashSet::new(),
-            projects: HashSet::new(),
+            tags: Vec::new(),
+            people: Vec::new(),
+            projects: Vec::new(),
         }
     }
 }

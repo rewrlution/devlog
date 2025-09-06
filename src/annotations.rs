@@ -1,11 +1,10 @@
 use regex::Regex;
-use std::collections::HashSet;
 
 /// Result of parsing annotations from content
 pub struct ParsedAnnotations {
-    pub people: HashSet<String>,
-    pub projects: HashSet<String>,
-    pub tags: HashSet<String>,
+    pub people: Vec<String>,
+    pub projects: Vec<String>,
+    pub tags: Vec<String>,
 }
 
 /// Extract annotations from text content
@@ -27,7 +26,7 @@ impl AnnotationParser {
     }
 
     /// Generic extraction function
-    fn extract_with_regex(&self, content: &str, regex: &Regex) -> HashSet<String> {
+    fn extract_with_regex(&self, content: &str, regex: &Regex) -> Vec<String> {
         regex
             .captures_iter(content)
             // capture[0] is the full match, i.e. @alice
@@ -62,15 +61,18 @@ mod tests {
             "@alice helped with ::project, then @alice worked on ::project using +rust and +rust";
         let annotations = parser.parse(content);
 
-        // Should deduplicate automatically due to HashSet
-        assert_eq!(annotations.people.len(), 1);
-        assert!(annotations.people.contains("alice"));
+        // Should allow duplicates since we're using Vec instead of HashSet
+        assert_eq!(annotations.people.len(), 2);
+        assert_eq!(annotations.people, ["alice", "alice"].map(String::from));
 
-        assert_eq!(annotations.projects.len(), 1);
-        assert!(annotations.projects.contains("project"));
+        assert_eq!(annotations.projects.len(), 2);
+        assert_eq!(
+            annotations.projects,
+            ["project", "project"].map(String::from)
+        );
 
-        assert_eq!(annotations.tags.len(), 1);
-        assert!(annotations.tags.contains("rust"));
+        assert_eq!(annotations.tags.len(), 2);
+        assert_eq!(annotations.tags, ["rust", "rust"].map(String::from));
     }
 
     #[test]
@@ -102,13 +104,13 @@ mod tests {
         let annotations = parser.parse(content);
 
         assert_eq!(annotations.people.len(), 1);
-        assert!(annotations.people.contains("alice"));
+        assert_eq!(annotations.people, vec!["alice".to_string()]);
 
         assert_eq!(annotations.projects.len(), 1);
-        assert!(annotations.projects.contains("project"));
+        assert_eq!(annotations.projects, vec!["project".to_string()]);
 
         assert_eq!(annotations.tags.len(), 1);
-        assert!(annotations.tags.contains("rust"));
+        assert_eq!(annotations.tags, vec!["rust".to_string()]);
     }
 
     #[test]
@@ -122,15 +124,48 @@ mod tests {
         let annotations = parser.parse(content);
 
         assert_eq!(annotations.people.len(), 2);
-        assert!(annotations.people.contains("sarah"));
-        assert!(annotations.people.contains("mike"));
+        assert_eq!(
+            annotations.people,
+            vec!["sarah".to_string(), "mike".to_string()]
+        );
 
         assert_eq!(annotations.projects.len(), 2);
-        assert!(annotations.projects.contains("search_engine"));
-        assert!(annotations.projects.contains("production"));
+        assert_eq!(
+            annotations.projects,
+            vec!["search_engine".to_string(), "production".to_string()]
+        );
 
         assert_eq!(annotations.tags.len(), 2);
-        assert!(annotations.tags.contains("rust"));
-        assert!(annotations.tags.contains("confidence"));
+        assert_eq!(
+            annotations.tags,
+            vec!["rust".to_string(), "confidence".to_string()]
+        );
+    }
+
+    #[test]
+    fn test_duplicates_preserved() {
+        let parser = AnnotationParser::new();
+        let content =
+            "@alice @bob @alice worked on ::proj1 ::proj2 ::proj1 using +rust +debug +rust";
+        let annotations = parser.parse(content);
+
+        // Duplicates should be preserved in order
+        assert_eq!(annotations.people.len(), 3);
+        assert_eq!(
+            annotations.people,
+            ["alice", "bob", "alice"].map(String::from)
+        );
+
+        assert_eq!(annotations.projects.len(), 3);
+        assert_eq!(
+            annotations.projects,
+            ["proj1", "proj2", "proj1"].map(String::from)
+        );
+
+        assert_eq!(annotations.tags.len(), 3);
+        assert_eq!(
+            annotations.tags,
+            ["rust", "debug", "rust"].map(String::from)
+        );
     }
 }

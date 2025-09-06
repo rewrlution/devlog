@@ -1,6 +1,5 @@
 use chrono::{DateTime, Local};
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
 
 /// Events that can happen to an entry
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -16,9 +15,9 @@ pub enum EntryEvent {
         timestamp: DateTime<Local>,
     },
     AnnotationParsed {
-        tags: HashSet<String>,
-        people: HashSet<String>,
-        projects: HashSet<String>,
+        tags: Vec<String>,
+        people: Vec<String>,
+        projects: Vec<String>,
         timestamp: DateTime<Local>,
     },
 }
