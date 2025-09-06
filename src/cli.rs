@@ -21,6 +21,11 @@ pub enum Commands {
         #[arg(short, long)]
         message: Option<String>,
     },
+    /// Edit an existing entry
+    Edit {
+        /// Entry ID to edit (format: YYYYMMDD)
+        id: String,
+    },
 }
 
 impl Cli {
@@ -35,6 +40,9 @@ impl Cli {
             Commands::New { message } => {
                 Self::handle_new_command(message, &storage);
             }
+            Commands::Edit { id } => {
+                Self::handle_edit_command(id, &storage);
+            }
         }
 
         Ok(())
@@ -47,21 +55,60 @@ impl Cli {
     ) -> Result<(), Box<dyn std::error::Error>> {
         let content = match message {
             Some(msg) => msg,
-            None => Self::open_editor_for_content()?,
+            None => Self::open_editor_for_content(None)?,
         };
 
         Ok(())
     }
 
+    /// Handle the edit subcommand
+    fn handle_edit_command(
+        id: String,
+        storage: &EntryStorage,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        // Load existing entry
+        let mut entry = match Entry::load(&id, storage)? {
+            Some(entry) => entry,
+            None => {
+                eprintln!("Entry with ID '{}' not found.", id);
+                process::exit(1);
+            }
+        };
+
+        // Get current content and open editor with it
+        let current_content = entry.current_state().content.clone();
+        let new_content = Self::open_editor_for_content(Some(&current_content))?;
+
+        if new_content.trim().is_empty() {
+            eprintln!("Entry content cannot be empty.");
+            process::exit(1);
+        }
+
+        // Update the entry
+        entry.update_content(new_content);
+
+        // Save the updated entry
+        entry.save(storage)?;
+
+        println!("Updated entry: {}", id);
+
+        Ok(())
+    }
+
     /// Open a text editor for the user to write content
-    fn open_editor_for_content() -> Result<String, Box<dyn std::error::Error>> {
+    fn open_editor_for_content(
+        existing_content: Option<&str>,
+    ) -> Result<String, Box<dyn std::error::Error>> {
         // Create a temporary file for editing
         let temp_file = tempfile::NamedTempFile::new()?;
         let temp_path = temp_file.path();
 
         // Write initial content with instructions
-        let init_content = Self::get_template();
-        std::fs::write(temp_path, init_content);
+        let init_content = match existing_content {
+            Some(content) => format!("{}\n{}", content, Self::get_template()),
+            None => Self::get_template(),
+        };
+        std::fs::write(temp_path, init_content)?;
 
         // Open the editor
         let editor = Self::find_available_editor();
