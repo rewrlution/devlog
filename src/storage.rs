@@ -1,7 +1,6 @@
 use crate::events::EntryEvent;
 use serde_json;
-use std::fs::{self, OpenOptions};
-use std::io::Write;
+use std::fs;
 use std::path::PathBuf;
 
 /// Handle file storage for `entries` and `events`
@@ -45,25 +44,26 @@ impl EntryStorage {
         self.base_dir.join("entries").join(format!("{}.md", date))
     }
 
-    /// Append an event to the event log
-    pub fn append_event(
+    /// Save all events for a given date (overwrites existing events)
+    pub fn save_events(
         &self,
         date: &str,
-        event: &EntryEvent,
+        events: &[EntryEvent],
     ) -> Result<(), Box<dyn std::error::Error>> {
         let events_path = self.events_path(date);
-        let event_json = serde_json::to_string(event)?;
 
-        let mut file = OpenOptions::new()
-            .create(true) // Create if doesn't exist
-            .append(true) // Append to the end of a file
-            .open(&events_path)?;
+        let mut content = String::new();
+        for event in events {
+            let event_json = serde_json::to_string(event)?;
+            content.push_str(&event_json);
+            content.push('\n');
+        }
 
-        writeln!(file, "{}", event_json)?;
+        fs::write(&events_path, content)?;
         Ok(())
     }
 
-    /// Save markdown content (overwrites existing)
+    /// Save markdown content (overwrites existing markdown content)
     pub fn save_markdown(
         &self,
         date: &str,
@@ -122,14 +122,14 @@ mod tests {
         let now = Local::now();
         let date = format!("{}", now.format("%Y%m%d"));
 
-        // Test event storage
-        let event = EntryEvent::Created {
+        // Test event storage with save_events
+        let events = vec![EntryEvent::Created {
             id: date.to_string(),
             content: "Test content".to_string(),
             timestamp: now,
-        };
+        }];
 
-        storage.append_event(&date, &event)?;
+        storage.save_events(&date, &events)?;
 
         // Test event loading
         let loaded_events = storage.load_events(&date)?;
@@ -142,6 +142,76 @@ mod tests {
         // Test markdown loading
         let loaded_markdown = storage.load_markdown(&date)?;
         assert_eq!(loaded_markdown, Some(markdown.to_string()));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_save_events_overwrites() -> Result<(), Box<dyn std::error::Error>> {
+        let temp_dir = TempDir::new()?;
+        let storage = EntryStorage::new(Some(temp_dir.path().to_path_buf()))?;
+
+        let now = Local::now();
+        let date = format!("{}", now.format("%Y%m%d"));
+
+        // First save some events
+        let events1 = vec![
+            EntryEvent::Created {
+                id: date.to_string(),
+                content: "First content".to_string(),
+                timestamp: now,
+            },
+            EntryEvent::AnnotationParsed {
+                tags: vec!["first".to_string()],
+                people: Vec::new(),
+                projects: Vec::new(),
+                timestamp: now,
+            },
+        ];
+
+        storage.save_events(&date, &events1)?;
+        let loaded = storage.load_events(&date)?;
+        assert_eq!(loaded.len(), 2);
+
+        // Now save different events (should overwrite)
+        let events2 = vec![
+            EntryEvent::Created {
+                id: date.to_string(),
+                content: "Second content".to_string(),
+                timestamp: now,
+            },
+            EntryEvent::AnnotationParsed {
+                tags: vec!["second".to_string()],
+                people: Vec::new(),
+                projects: Vec::new(),
+                timestamp: now,
+            },
+            EntryEvent::ContentUpdated {
+                content: "Updated content".to_string(),
+                timestamp: now,
+            },
+        ];
+
+        storage.save_events(&date, &events2)?;
+        let loaded = storage.load_events(&date)?;
+        assert_eq!(loaded.len(), 3); // Should have 3 events, not 5
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_save_empty_events() -> Result<(), Box<dyn std::error::Error>> {
+        let temp_dir = TempDir::new()?;
+        let storage = EntryStorage::new(Some(temp_dir.path().to_path_buf()))?;
+
+        let date = "20250906";
+
+        // Save empty events list
+        storage.save_events(date, &[])?;
+
+        // Should load empty list
+        let loaded = storage.load_events(date)?;
+        assert_eq!(loaded.len(), 0);
 
         Ok(())
     }

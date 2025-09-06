@@ -187,7 +187,7 @@ locations_regex: Regex::new(r"#([\w-]+)")
 ```rust
 // Interface allows database, cloud storage
 trait EventStorage {
-    fn append_event(&self, event: &EntryEvent) -> Result<()>;
+    fn save_events(&self, date: &str, events: &[EntryEvent]) -> Result<()>;
     fn load_events(&self, date: &str) -> Result<Vec<EntryEvent>>;
 }
 ```

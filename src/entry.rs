@@ -178,9 +178,7 @@ projects: [{}]
         let date = &self.state.id;
 
         // Save all events
-        for event in &self.events {
-            storage.append_event(date, event)?;
-        }
+        storage.save_events(date, &self.events)?;
 
         // Save current markdown
         let markdown = self.to_markdown();
@@ -438,5 +436,41 @@ mod tests {
         assert!(markdown.contains("people: [alice, bob, charlie]"));
         assert!(markdown.contains("tags: [rust, tokio, async]"));
         assert!(markdown.contains("projects: [project1, project2]"));
+    }
+
+    #[test]
+    fn test_save_and_edit_no_duplicate_events() {
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let storage = EntryStorage::new(Some(temp_dir.path().to_path_buf())).unwrap();
+
+        // Simulate 'devlog new' command
+        let entry = Entry::new("Initial content @alice +rust".to_string());
+        entry.save(&storage).unwrap();
+
+        // Verify initial events are saved
+        let initial_events = storage.load_events(&entry.current_state().id).unwrap();
+        assert_eq!(initial_events.len(), 2); // Created + AnnotationParsed
+
+        // Simulate 'devlog edit' command
+        let mut loaded_entry = Entry::load(&entry.current_state().id, &storage)
+            .unwrap()
+            .unwrap();
+        loaded_entry.update_content("Updated content @bob +golang".to_string());
+        loaded_entry.save(&storage).unwrap();
+
+        // Verify no duplicate events
+        let final_events = storage.load_events(&entry.current_state().id).unwrap();
+        assert_eq!(final_events.len(), 4); // Created + AnnotationParsed + ContentUpdated + AnnotationParsed
+
+        // Verify the content is correct
+        let final_entry = Entry::load(&entry.current_state().id, &storage)
+            .unwrap()
+            .unwrap();
+        let state = final_entry.current_state();
+        assert_eq!(state.content, "Updated content @bob +golang");
+        assert_eq!(state.people, vec!["bob"]);
+        assert_eq!(state.tags, vec!["golang"]);
     }
 }
