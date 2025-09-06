@@ -197,3 +197,245 @@ projects: [{}]
         Ok(Entry::from_events(events))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::TimeZone;
+
+    fn create_test_timestamp() -> DateTime<Local> {
+        Local.with_ymd_and_hms(2025, 9, 5, 14, 30, 0).unwrap()
+    }
+
+    #[test]
+    fn test_new_entry_basic() {
+        let entry = Entry::new("Test content".to_string());
+        let state = entry.current_state();
+
+        assert_eq!(state.content, "Test content");
+        assert!(!state.id.is_empty());
+
+        // Should have 2 events: Created and AnnotationParsed
+        assert_eq!(entry.events.len(), 2);
+    }
+
+    #[test]
+    fn test_new_entry_with_annotations() {
+        let entry = Entry::new("Worked with @alice on ::search_engine using +rust".to_string());
+        let state = entry.current_state();
+
+        assert_eq!(
+            state.content,
+            "Worked with @alice on ::search_engine using +rust"
+        );
+        assert_eq!(state.people.len(), 1);
+        assert_eq!(state.people[0], "alice");
+        assert_eq!(state.projects.len(), 1);
+        assert_eq!(state.projects[0], "search_engine");
+        assert_eq!(state.tags.len(), 1);
+        assert_eq!(state.tags[0], "rust");
+
+        // Should have 2 events: Created and AnnotationParsed
+        assert_eq!(entry.events().len(), 2);
+    }
+
+    #[test]
+    fn test_new_entry_preserves_annotation_order() {
+        let entry = Entry::new("Met @alice then @bob then @alice again".to_string());
+        let state = entry.current_state();
+
+        // Vec preserves order and allows duplicates
+        assert_eq!(state.people.len(), 3);
+        assert_eq!(state.people[0], "alice");
+        assert_eq!(state.people[1], "bob");
+        assert_eq!(state.people[2], "alice");
+    }
+
+    #[test]
+    fn test_update_content() {
+        let mut entry = Entry::new("Initial content".to_string());
+        let initial_events = entry.events().len();
+
+        entry.update_content("Updated with @bob and +learning".to_string());
+
+        let state = entry.current_state();
+        assert_eq!(state.content, "Updated with @bob and +learning");
+        assert_eq!(state.people[0], "bob");
+        assert_eq!(state.tags[0], "learning");
+
+        // Should have added ContentUpdated and AnnotationParsed events
+        assert_eq!(entry.events().len(), initial_events + 2);
+    }
+
+    #[test]
+    fn test_multiple_content_updates() {
+        let mut entry = Entry::new("Initial".to_string());
+
+        entry.update_content("First update @alice".to_string());
+        entry.update_content("Second update @bob +rust".to_string());
+
+        let state = entry.current_state();
+        assert_eq!(state.content, "Second update @bob +rust");
+        assert_eq!(state.people[0], "bob");
+        assert_eq!(state.tags[0], "rust");
+
+        // Should have 6 events: Created, AnnotationParsed, ContentUpdated, AnnotationParsed, ContentUpdated, AnnotationParsed
+        assert_eq!(entry.events().len(), 6);
+    }
+
+    #[test]
+    fn test_from_events_empty() {
+        let result = Entry::from_events(Vec::new());
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_from_events_single_created() {
+        let timestamp = create_test_timestamp();
+        let events = vec![EntryEvent::Created {
+            id: "20250905".to_string(),
+            content: "Test content".to_string(),
+            timestamp,
+        }];
+
+        let entry = Entry::from_events(events).unwrap();
+        let state = entry.current_state();
+
+        assert_eq!(state.id, "20250905");
+        assert_eq!(state.content, "Test content");
+        assert_eq!(state.created_at, timestamp);
+        assert_eq!(state.updated_at, timestamp);
+        assert_eq!(entry.events().len(), 1);
+    }
+
+    #[test]
+    fn test_from_events_with_annotations() {
+        let timestamp = create_test_timestamp();
+        let events = vec![
+            EntryEvent::Created {
+                id: "20250905".to_string(),
+                content: "Test content @alice".to_string(),
+                timestamp,
+            },
+            EntryEvent::AnnotationParsed {
+                tags: Vec::new(),
+                people: vec!["alice".to_string()],
+                projects: Vec::new(),
+                timestamp,
+            },
+        ];
+
+        let entry = Entry::from_events(events).unwrap();
+        let state = entry.current_state();
+
+        assert_eq!(state.content, "Test content @alice");
+        assert_eq!(state.people[0], "alice");
+        assert_eq!(entry.events().len(), 2);
+    }
+
+    #[test]
+    fn test_from_events_complex_sequence() {
+        let timestamp = create_test_timestamp();
+        let events = vec![
+            EntryEvent::Created {
+                id: "20250905".to_string(),
+                content: "Initial content".to_string(),
+                timestamp,
+            },
+            EntryEvent::AnnotationParsed {
+                tags: Vec::new(),
+                people: Vec::new(),
+                projects: Vec::new(),
+                timestamp,
+            },
+            EntryEvent::ContentUpdated {
+                content: "Updated with @alice +rust".to_string(),
+                timestamp,
+            },
+            EntryEvent::AnnotationParsed {
+                tags: vec!["rust".to_string()],
+                people: vec!["alice".to_string()],
+                projects: Vec::new(),
+                timestamp,
+            },
+        ];
+
+        let entry = Entry::from_events(events).unwrap();
+        let state = entry.current_state();
+
+        assert_eq!(state.content, "Updated with @alice +rust");
+        assert_eq!(state.people[0], "alice");
+        assert_eq!(state.tags[0], "rust");
+        assert_eq!(entry.events().len(), 4);
+    }
+
+    #[test]
+    fn test_new_and_from_events_consistency() {
+        // Create entry using new()
+        let entry1 = Entry::new("Test content @alice +rust".to_string());
+
+        // Create entry using from_events() with same events
+        let events = entry1.events().to_vec();
+        let entry2 = Entry::from_events(events).unwrap();
+
+        // Both should have identical state
+        assert_eq!(entry1.state.id, entry2.state.id);
+        assert_eq!(entry1.state.content, entry2.state.content);
+        assert_eq!(entry1.state.people, entry2.state.people);
+        assert_eq!(entry1.state.tags, entry2.state.tags);
+        assert_eq!(entry1.state.projects, entry2.state.projects);
+        assert_eq!(entry1.events().len(), entry2.events().len());
+    }
+
+    #[test]
+    fn test_to_markdown_basic() {
+        let entry = Entry::new("Simple content".to_string());
+        let markdown = entry.to_markdown();
+
+        assert!(markdown.contains("---"));
+        assert!(markdown.contains("id:"));
+        assert!(markdown.contains("created_at:"));
+        assert!(markdown.contains("updated_at:"));
+        assert!(markdown.contains("tags: []"));
+        assert!(markdown.contains("people: []"));
+        assert!(markdown.contains("projects: []"));
+        assert!(markdown.contains("Simple content"));
+    }
+
+    #[test]
+    fn test_to_markdown_with_annotations() {
+        let entry = Entry::new("Worked with @alice and @bob on ::project using +rust".to_string());
+        let markdown = entry.to_markdown();
+
+        assert!(markdown.contains("---"));
+        assert!(markdown.contains("people: [alice, bob]"));
+        assert!(markdown.contains("projects: [project]"));
+        assert!(markdown.contains("tags: [rust]"));
+        assert!(markdown.contains("Worked with @alice and @bob"));
+
+        // Test ISO 8601 timestamp format
+        assert!(markdown.contains("T") && (markdown.contains("+") || markdown.contains("-")));
+    }
+
+    #[test]
+    fn test_to_markdown_empty_annotations() {
+        let entry = Entry::new("No annotations here".to_string());
+        let markdown = entry.to_markdown();
+
+        assert!(markdown.contains("tags: []"));
+        assert!(markdown.contains("people: []"));
+        assert!(markdown.contains("projects: []"));
+    }
+
+    #[test]
+    fn test_to_markdown_multiple_annotations() {
+        let entry = Entry::new(
+            "Complex: @alice @bob @charlie +rust +tokio +async ::project1 ::project2".to_string(),
+        );
+        let markdown = entry.to_markdown();
+
+        assert!(markdown.contains("people: [alice, bob, charlie]"));
+        assert!(markdown.contains("tags: [rust, tokio, async]"));
+        assert!(markdown.contains("projects: [project1, project2]"));
+    }
+}
