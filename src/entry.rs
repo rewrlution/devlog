@@ -1,5 +1,5 @@
 use crate::annotations::{self, AnnotationParser, ParsedAnnotations};
-use crate::events::EntryEvent;
+use crate::events::{self, EntryEvent};
 use crate::storage::EntryStorage;
 use chrono::{DateTime, Local};
 use std::collections::HashSet;
@@ -16,6 +16,21 @@ pub struct EntryState {
     pub projects: HashSet<String>,
 }
 
+impl Default for EntryState {
+    fn default() -> Self {
+        let now = Local::now();
+        Self {
+            id: String::new(),
+            created_at: now,
+            updated_at: now,
+            content: String::new(),
+            tags: HashSet::new(),
+            people: HashSet::new(),
+            projects: HashSet::new(),
+        }
+    }
+}
+
 /// The main Entry aggregate that manages events and state
 pub struct Entry {
     events: Vec<EntryEvent>,
@@ -29,28 +44,20 @@ impl Entry {
         let now = Local::now();
         let id = format!("{}", now.format("%Y%m%d"));
 
-        let created_event = EntryEvent::Created {
-            id: id.clone(),
-            content: content.clone(),
-            timestamp: now,
-        };
-
+        // Start with empty entry and apply events
         let mut entry = Entry {
-            events: vec![created_event],
-            state: EntryState {
-                id,
-                created_at: now,
-                updated_at: now,
-                content,
-                tags: HashSet::new(),
-                people: HashSet::new(),
-                projects: HashSet::new(),
-            },
+            events: Vec::new(),
+            state: EntryState::default(),
             annotation_parser: AnnotationParser::new(),
         };
 
-        // Automatically parse annotations on creation
-        entry.parse_annotations();
+        let event = EntryEvent::Created {
+            id,
+            content,
+            timestamp: now,
+        };
+        entry.apply_event(event);
+        entry.parse_annotations(); // Automatically parse annotations on creation
         entry
     }
 
@@ -109,5 +116,36 @@ impl Entry {
             }
         }
         self.events.push(event);
+    }
+
+    /// Get the current state (what user sees)
+    pub fn current_state(&self) -> &EntryState {
+        &self.state
+    }
+
+    /// Get all events (for storage or debugging)
+    pub fn events(&self) -> &[EntryEvent] {
+        &self.events
+    }
+
+    /// Rebuild entry from events
+    pub fn from_events(events: Vec<EntryEvent>) -> Option<Self> {
+        if events.is_empty() {
+            return None;
+        }
+
+        // Start with default state
+        let mut entry = Entry {
+            events: Vec::new(),
+            state: EntryState::default(),
+            annotation_parser: AnnotationParser::new(),
+        };
+
+        // Apply all events to the state
+        for event in events {
+            entry.apply_event(event);
+        }
+
+        Some(entry)
     }
 }
