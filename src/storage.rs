@@ -95,6 +95,7 @@ impl EntryStorage {
     }
 
     /// Load markdown content
+    #[allow(dead_code)]
     pub fn load_markdown(&self, date: &str) -> Result<Option<String>, Box<dyn std::error::Error>> {
         let markdown_path = self.markdown_path(date);
 

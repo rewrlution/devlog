@@ -123,6 +123,7 @@ impl Entry {
     }
 
     /// Get all events (for storage or debugging)
+    #[allow(dead_code)]
     pub fn events(&self) -> &[EntryEvent] {
         &self.events
     }
