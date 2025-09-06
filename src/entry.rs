@@ -1,6 +1,6 @@
-use crate::annotations::{self, AnnotationParser, ParsedAnnotations};
-use crate::events::{self, EntryEvent};
-use crate::storage::{self, EntryStorage};
+use crate::annotations::AnnotationParser;
+use crate::events::EntryEvent;
+use crate::storage::EntryStorage;
 use chrono::{DateTime, Local};
 
 /// Current state of an entry (derived from events)

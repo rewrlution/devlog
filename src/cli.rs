@@ -1,5 +1,5 @@
+use crate::entry::Entry;
 use crate::storage::EntryStorage;
-use crate::{entry::Entry, storage};
 use clap::{Parser, Subcommand};
 use std::process;
 
@@ -38,10 +38,10 @@ impl Cli {
 
         match cli.command {
             Commands::New { message } => {
-                Self::handle_new_command(message, &storage);
+                Self::handle_new_command(message, &storage)?;
             }
             Commands::Edit { id } => {
-                Self::handle_edit_command(id, &storage);
+                Self::handle_edit_command(id, &storage)?;
             }
         }
 
@@ -57,6 +57,20 @@ impl Cli {
             Some(msg) => msg,
             None => Self::open_editor_for_content(None)?,
         };
+
+        if content.trim().is_empty() {
+            eprintln!("Entry content cannot be empty.");
+            process::exit(1);
+        }
+
+        // Create new entry
+        let entry = Entry::new(content);
+
+        // Save the entry
+        entry.save(storage)?;
+
+        let state = entry.current_state();
+        println!("Created new entry: {}", state.id);
 
         Ok(())
     }

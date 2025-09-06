@@ -4,6 +4,12 @@ mod entry;
 mod events;
 mod storage;
 
+use cli::Cli;
+use std::process;
+
 fn main() {
-    println!("devlog");
+    if let Err(e) = Cli::run() {
+        eprintln!("Error: {}", e);
+        process::exit(1);
+    }
 }
