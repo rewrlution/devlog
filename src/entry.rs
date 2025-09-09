@@ -38,11 +38,8 @@ pub struct Entry {
 }
 
 impl Entry {
-    /// Create a new entry with inital content
-    pub fn new(content: String) -> Self {
-        let now = Local::now();
-        let id = format!("{}", now.format("%Y%m%d"));
-
+    /// Create a new entry with initial content and ID
+    pub fn new(content: String, id: String) -> Self {
         // Start with empty entry and apply events
         let mut entry = Entry {
             events: Vec::new(),
@@ -53,7 +50,7 @@ impl Entry {
         let event = EntryEvent::Created {
             id,
             content,
-            timestamp: now,
+            timestamp: Local::now(),
         };
         entry.apply_event(event);
         entry.parse_annotations(); // Automatically parse annotations on creation
@@ -208,11 +205,11 @@ mod tests {
 
     #[test]
     fn test_new_entry_basic() {
-        let entry = Entry::new("Test content".to_string());
+        let entry = Entry::new("Test content".to_string(), "20250905".to_string());
         let state = entry.current_state();
 
         assert_eq!(state.content, "Test content");
-        assert!(!state.id.is_empty());
+        assert_eq!(state.id, "20250905");
 
         // Should have 2 events: Created and AnnotationParsed
         assert_eq!(entry.events.len(), 2);
@@ -220,7 +217,10 @@ mod tests {
 
     #[test]
     fn test_new_entry_with_annotations() {
-        let entry = Entry::new("Worked with @alice on ::search_engine using +rust".to_string());
+        let entry = Entry::new(
+            "Worked with @alice on ::search_engine using +rust".to_string(),
+            "20250905".to_string(),
+        );
         let state = entry.current_state();
 
         assert_eq!(
@@ -240,7 +240,10 @@ mod tests {
 
     #[test]
     fn test_new_entry_preserves_annotation_order() {
-        let entry = Entry::new("Met @alice then @bob then @alice again".to_string());
+        let entry = Entry::new(
+            "Met @alice then @bob then @alice again".to_string(),
+            "20250905".to_string(),
+        );
         let state = entry.current_state();
 
         // Vec preserves order and allows duplicates
@@ -252,7 +255,7 @@ mod tests {
 
     #[test]
     fn test_update_content() {
-        let mut entry = Entry::new("Initial content".to_string());
+        let mut entry = Entry::new("Initial content".to_string(), "20250905".to_string());
         let initial_events = entry.events().len();
 
         entry.update_content("Updated with @bob and +learning".to_string());
@@ -268,7 +271,7 @@ mod tests {
 
     #[test]
     fn test_multiple_content_updates() {
-        let mut entry = Entry::new("Initial".to_string());
+        let mut entry = Entry::new("Initial".to_string(), "20250905".to_string());
 
         entry.update_content("First update @alice".to_string());
         entry.update_content("Second update @bob +rust".to_string());
@@ -371,7 +374,10 @@ mod tests {
     #[test]
     fn test_new_and_from_events_consistency() {
         // Create entry using new()
-        let entry1 = Entry::new("Test content @alice +rust".to_string());
+        let entry1 = Entry::new(
+            "Test content @alice +rust".to_string(),
+            "20250905".to_string(),
+        );
 
         // Create entry using from_events() with same events
         let events = entry1.events().to_vec();
@@ -388,11 +394,11 @@ mod tests {
 
     #[test]
     fn test_to_markdown_basic() {
-        let entry = Entry::new("Simple content".to_string());
+        let entry = Entry::new("Simple content".to_string(), "20250905".to_string());
         let markdown = entry.to_markdown();
 
         assert!(markdown.contains("---"));
-        assert!(markdown.contains("id:"));
+        assert!(markdown.contains("id: 20250905"));
         assert!(markdown.contains("created_at:"));
         assert!(markdown.contains("updated_at:"));
         assert!(markdown.contains("tags: []"));
@@ -403,7 +409,10 @@ mod tests {
 
     #[test]
     fn test_to_markdown_with_annotations() {
-        let entry = Entry::new("Worked with @alice and @bob on ::project using +rust".to_string());
+        let entry = Entry::new(
+            "Worked with @alice and @bob on ::project using +rust".to_string(),
+            "20250905".to_string(),
+        );
         let markdown = entry.to_markdown();
 
         assert!(markdown.contains("---"));
@@ -418,7 +427,7 @@ mod tests {
 
     #[test]
     fn test_to_markdown_empty_annotations() {
-        let entry = Entry::new("No annotations here".to_string());
+        let entry = Entry::new("No annotations here".to_string(), "20250905".to_string());
         let markdown = entry.to_markdown();
 
         assert!(markdown.contains("tags: []"));
@@ -430,6 +439,7 @@ mod tests {
     fn test_to_markdown_multiple_annotations() {
         let entry = Entry::new(
             "Complex: @alice @bob @charlie +rust +tokio +async ::project1 ::project2".to_string(),
+            "20250905".to_string(),
         );
         let markdown = entry.to_markdown();
 
@@ -446,7 +456,10 @@ mod tests {
         let storage = EntryStorage::new(Some(temp_dir.path().to_path_buf())).unwrap();
 
         // Simulate 'devlog new' command
-        let entry = Entry::new("Initial content @alice +rust".to_string());
+        let entry = Entry::new(
+            "Initial content @alice +rust".to_string(),
+            "20250905".to_string(),
+        );
         entry.save(&storage).unwrap();
 
         // Verify initial events are saved
