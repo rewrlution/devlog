@@ -1,14 +1,15 @@
-mod entry;
+mod annotations;
 mod cli;
+mod entry;
+mod events;
+mod storage;
 
-use clap::Parser;
 use cli::Cli;
+use std::process;
 
 fn main() {
-    let cli = Cli::parse();
-
-    if let Err(e) = cli.handle_command() {
+    if let Err(e) = Cli::run() {
         eprintln!("Error: {}", e);
-        std::process::exit(1);
+        process::exit(1);
     }
 }

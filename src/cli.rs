@@ -1,12 +1,9 @@
-use chrono::Utc;
-use clap::{Parser, Subcommand};
 use crate::entry::Entry;
-use std::env;
-use std::fs;
-use std::path::PathBuf;
-use std::process::Command;
+use crate::storage::EntryStorage;
+use clap::{Parser, Subcommand};
+use std::process;
 
-/// DevLog - A journal CLI tool for developers
+/// DevLog - a journal CLI tool for developers
 #[derive(Parser)]
 #[command(name = "devlog")]
 #[command(about = "A journal CLI tool for developers")]
@@ -18,80 +15,152 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
-    /// Create a new journal entry
+    /// Create a new entry
     New {
-        /// Inline message for quick entry
+        /// Inline message for the entry
         #[arg(short, long)]
         message: Option<String>,
-    }
+    },
+    /// Edit an existing entry
+    Edit {
+        /// Entry ID to edit (format: YYYYMMDD)
+        id: String,
+    },
 }
 
 impl Cli {
-    /// Handle the parsed command
-    pub fn handle_command(&self)  -> Result<(), Box<dyn std::error::Error>> {
-        match &self.command {
-            Commands::New { message} => {
-                self.handle_new_command(message.clone())
+    /// Run the CLI application
+    pub fn run() -> Result<(), Box<dyn std::error::Error>> {
+        let cli = Cli::parse();
+        // TODO: read user defined storage path
+        // For now, we use the default `base_dir`, which is `~/.devlog`
+        let storage = EntryStorage::new(None)?;
+
+        match cli.command {
+            Commands::New { message } => {
+                Self::handle_new_command(message, &storage)?;
+            }
+            Commands::Edit { id } => {
+                Self::handle_edit_command(id, &storage)?;
             }
         }
-    }
 
-    /// Handle the new command
-    fn handle_new_command(&self, message: Option<String>) -> Result<(), Box<dyn std::error::Error>> {
-        let content = match message {
-            Some(msg) => msg,
-            None => self.open_editor_for_content()?
-        };
-
-        if content.is_empty() {
-            println!("No content provided. Entry not created.");
-            return Ok(());
-        }
-
-        // Create entry and parse annotations
-        let mut entry = Entry::new(content);
-        entry.parse_annotations();
-
-        // Get or crete the devlog directory
-        let devlog_dir = self.get_devlog_directory()?;
-        fs::create_dir_all(&devlog_dir)?;
-
-        // Save to local markdown file
-        let now = Utc::now();
-        let date_str = now.format("%Y%m%d");
-        let filename = format!("devlog-{}.md", date_str);
-        let filepath = devlog_dir.join(&filename);
-
-        fs::write(&filepath, entry.to_markdown())?;
-        println!("Entry saved to {}", filepath.display());
-        
         Ok(())
     }
 
-    /// Get the appropriate devlog directory based on the platform
-    fn get_devlog_directory(&self) -> Result<PathBuf, Box<dyn std::error::Error>> {
-        let home_dir = dirs::home_dir()
-            .ok_or("Could not find home directory")?;
+    /// Handle the new subcommand
+    fn handle_new_command(
+        message: Option<String>,
+        storage: &EntryStorage,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let content = match message {
+            Some(msg) => msg,
+            None => Self::open_editor_for_content(None)?,
+        };
 
-        // All platforms use ~/Documents/devlog for user accessibility
-        // macOS: ~/Documents/devlog
-        // Windows: %USERPROFILE%\Documents\devlog
-        // Linux: ~/Documents/devlog
-        let devlog_dir = home_dir.join("Documents").join("devlog");
+        if content.trim().is_empty() {
+            eprintln!("Entry content cannot be empty.");
+            process::exit(1);
+        }
 
-        Ok(devlog_dir)
+        // Create new entry
+        let entry = Entry::new(content);
+
+        // Save the entry
+        entry.save(storage)?;
+
+        let state = entry.current_state();
+        println!("Created new entry: {}", state.id);
+
+        Ok(())
+    }
+
+    /// Handle the edit subcommand
+    fn handle_edit_command(
+        id: String,
+        storage: &EntryStorage,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        // Load existing entry
+        let mut entry = match Entry::load(&id, storage)? {
+            Some(entry) => entry,
+            None => {
+                eprintln!("Entry with ID '{}' not found.", id);
+                process::exit(1);
+            }
+        };
+
+        // Get current content and open editor with it
+        let current_content = entry.current_state().content.clone();
+        let new_content = Self::open_editor_for_content(Some(&current_content))?;
+
+        if new_content.trim().is_empty() {
+            eprintln!("Entry content cannot be empty.");
+            process::exit(1);
+        }
+
+        // Update the entry
+        entry.update_content(new_content);
+
+        // Save the updated entry
+        entry.save(storage)?;
+
+        println!("Updated entry: {}", id);
+
+        Ok(())
     }
 
     /// Open a text editor for the user to write content
-    fn open_editor_for_content(&self) -> Result<String, Box<dyn std::error::Error>> {
-        // Create a temporary file
-        let uuid = uuid::Uuid::new_v4();
-        let temp_dir = env::temp_dir();
-        println!("Temporary directory: {}", temp_dir.display());
-        let temp_file = temp_dir.join(format!("devlog-{}.md", uuid));
+    fn open_editor_for_content(
+        existing_content: Option<&str>,
+    ) -> Result<String, Box<dyn std::error::Error>> {
+        // Create a temporary file for editing
+        let temp_file = tempfile::NamedTempFile::new()?;
+        let temp_path = temp_file.path();
 
         // Write initial content with instructions
-        let initial_content = r#"
+        let init_content = match existing_content {
+            Some(content) => format!("{}\n{}", content, Self::get_template()),
+            None => Self::get_template(),
+        };
+        std::fs::write(temp_path, init_content)?;
+
+        // Open the editor
+        let editor = Self::find_available_editor();
+        let status = process::Command::new(&editor).arg(temp_path).status()?;
+
+        if !status.success() {
+            return Err(format!("Editor '{}' exited with non-zero status", editor).into());
+        }
+
+        // Read content back from temp file
+        let content = std::fs::read_to_string(temp_path)?;
+
+        // Clean the content by removing comment lines
+        let processed_content = Self::clean_content(content);
+        Ok(processed_content)
+    }
+
+    /// Find the first available editor
+    fn find_available_editor() -> String {
+        let editors = ["vi", "nano"];
+
+        for editor in &editors {
+            if process::Command::new(editor)
+                .arg("--version")
+                .output()
+                .is_ok()
+            {
+                return editor.to_string();
+            }
+        }
+
+        // Fallback to vi (should be available on most Unix systems)
+        "vi".to_string()
+    }
+
+    /// Get the initial template for new entries
+    fn get_template() -> String {
+        r#"
 
 # Enter your journal entry above this line
 # Lines starting with # are comments and will be ignored
@@ -102,39 +171,37 @@ impl Cli {
 #
 # Save and exit to create the entry (:wq in vim)
 # Exit without saving to cancel (ZQ in vim or Ctrl+C)
-"#;
-        fs::write(&temp_file, initial_content)?;
+"#
+        .to_string()
+    }
 
-        // Get editor (only support `vi` at the moment)
-        // Support `nano` and other visual editors in the future
-        let editor = "vi".to_string();
-
-        // Open the editor
-        // Open the editor
-        let status = Command::new(&editor)
-            .arg(&temp_file)
-            .status()?;
-
-        if !status.success() {
-            fs::remove_file(&temp_file).ok();
-            return Err("Editor was cancelled or exited with error".into());
-        }
-
-        // Read the content back
-        let content = fs::read_to_string(&temp_file)?;
-
-        // Clean up the temporary file
-        fs::remove_file(&temp_file).ok();
-
-        // Process content - remove comment lines and trim
-        let processed_content = content
+    /// Clean content by removing comment lines and tempy lines at the beginning
+    fn clean_content(content: String) -> String {
+        let lines: Vec<&str> = content
             .lines()
-            .filter(|line| !line.trim_start().starts_with('#'))
-            .collect::<Vec<&str>>()
-            .join("\n")
-            .trim()
-            .to_string();
+            .filter(|line| !line.trim().starts_with('#'))
+            .collect();
+        lines.join("\n").trim().to_string()
+    }
+}
 
-        Ok(processed_content)
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_template() {
+        let template = Cli::get_template();
+        assert!(template.contains("# Enter your journal entry"));
+        assert!(template.contains("@person"));
+        assert!(template.contains("::project"));
+        assert!(template.contains("+tag"));
+    }
+
+    #[test]
+    fn test_find_available_editor() {
+        let editor = Cli::find_available_editor();
+        // Should return one of our supported editors or fallback to vi
+        assert!(editor == "vi" || editor == "nano");
     }
 }
