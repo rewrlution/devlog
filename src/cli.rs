@@ -66,6 +66,13 @@ impl Cli {
         // Generate ID: use custom ID if provided, otherwise use current date
         let id = custom_id.unwrap_or_else(|| format!("{}", Local::now().format("%Y%m%d")));
 
+        // Check if entry already exists to prevent data loss
+        if Entry::load(&id, storage)?.is_some() {
+            eprintln!("Entry with ID '{}' already exists.", id);
+            eprintln!("To edit the existing entry, use: devlog edit --id {}", id);
+            process::exit(1);
+        }
+
         let content = match message {
             Some(msg) => msg,
             None => Self::open_editor_for_content(None)?,
