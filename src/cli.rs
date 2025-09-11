@@ -37,6 +37,8 @@ pub enum Commands {
         #[arg(value_name = "YYYYMMDD")]
         id: String,
     },
+    /// List all entries
+    List,
 }
 
 impl Cli {
@@ -56,6 +58,9 @@ impl Cli {
             }
             Commands::Show { id } => {
                 Self::handle_show_command(id, &storage)?;
+            }
+            Commands::List => {
+                Self::handle_list_command(&storage)?;
             }
         }
 
@@ -156,6 +161,49 @@ impl Cli {
         };
 
         Self::display_default_format(&entry);
+
+        Ok(())
+    }
+
+    /// Handle the list subcommand
+    fn handle_list_command(storage: &EntryStorage) -> Result<(), Box<dyn std::error::Error>> {
+        let entry_ids = storage.list_entry_ids()?;
+
+        if entry_ids.is_empty() {
+            println!("No entries found. Create one with 'devlog new'");
+            return Ok(());
+        }
+
+        println!();
+        println!("DevLog Entries");
+        println!("══════════════");
+
+        for entry_id in &entry_ids {
+            // Load the entry to get its content
+            if let Some(entry) = Entry::load(entry_id, storage)? {
+                let state = entry.current_state();
+
+                // Get the first line of content, truncated to ~60 characters
+                let first_line = state.content.lines().next().unwrap_or("(empty)").trim();
+
+                let display_content = if first_line.len() > 60 {
+                    format!("{}...", &first_line[..57])
+                } else if state.content.lines().count() > 1 {
+                    format!("{}...", first_line)
+                } else {
+                    first_line.to_string()
+                };
+
+                println!("  {}  {}", entry_id, display_content);
+            }
+        }
+
+        println!("══════════════");
+        println!("Total: {} entries", entry_ids.len());
+        println!();
+        println!("Commands:");
+        println!("  devlog edit --id YYYYMMDD  Edit an entry");
+        println!("  devlog new                 Create a new entry");
 
         Ok(())
     }
