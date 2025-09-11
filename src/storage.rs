@@ -34,6 +34,41 @@ impl EntryStorage {
         Ok(Self { base_dir })
     }
 
+    /// List all entry IDs sorted in descending order (newest first)
+    pub fn list_entry_ids(&self) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+        let entries_dir = self.base_dir.join("entries");
+
+        if !entries_dir.exists() {
+            return Ok(Vec::new());
+        }
+
+        let mut entry_ids = Vec::new();
+
+        for entry in fs::read_dir(entries_dir)? {
+            // Entry is Result<DirEntry, Error>, not DirEntry
+            // Each individual file/directory read operation could fail due to permission, corrupted filesystem, etc.
+            let entry = entry?;
+            let path = entry.path();
+
+            // Only process .md files
+            if path.is_file() && path.extension().map_or(false, |ext| ext == "md") {
+                // file_stem() returns the filename without its extension
+                // this method can return None for paths like `/` or `..`
+                // `to_str()` can return None if the fielname contains invalid UTF-8 characters
+                if let Some(file_stem) = path.file_stem() {
+                    if let Some(entry_id) = file_stem.to_str() {
+                        entry_ids.push(entry_id.to_string());
+                    }
+                }
+            }
+        }
+
+        // Sort in descending order
+        entry_ids.sort_by(|a, b| b.cmp(a));
+
+        Ok(entry_ids)
+    }
+
     /// Get the event file path for a given date
     fn events_path(&self, date: &str) -> PathBuf {
         self.base_dir.join("events").join(format!("{}.jsonl", date))
