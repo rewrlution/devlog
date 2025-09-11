@@ -1,7 +1,10 @@
-use crate::annotations::AnnotationParser;
+use crate::annotations::{AnnotationParser, RegexAnnotationParser};
 use crate::events::EntryEvent;
 use crate::storage::EntryStorage;
 use chrono::{DateTime, Local};
+
+#[cfg(test)]
+use crate::storage::LocalEntryStorage;
 
 /// Current state of an entry (derived from events)
 #[derive(Debug, Clone)]
@@ -34,7 +37,7 @@ impl Default for EntryState {
 pub struct Entry {
     events: Vec<EntryEvent>,
     state: EntryState,
-    annotation_parser: AnnotationParser,
+    annotation_parser: Box<dyn AnnotationParser>,
 }
 
 impl Entry {
@@ -44,7 +47,7 @@ impl Entry {
         let mut entry = Entry {
             events: Vec::new(),
             state: EntryState::default(),
-            annotation_parser: AnnotationParser::new(),
+            annotation_parser: Box::new(RegexAnnotationParser::new()),
         };
 
         let event = EntryEvent::Created {
@@ -135,7 +138,7 @@ impl Entry {
         let mut entry = Entry {
             events: Vec::new(),
             state: EntryState::default(),
-            annotation_parser: AnnotationParser::new(),
+            annotation_parser: Box::new(RegexAnnotationParser::new()),
         };
 
         // Apply all events to the state
@@ -171,7 +174,7 @@ projects: [{}]
     }
 
     /// Save entry to storage
-    pub fn save(&self, storage: &EntryStorage) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn save(&self, storage: &dyn EntryStorage) -> Result<(), Box<dyn std::error::Error>> {
         let date = &self.state.id;
 
         // Save all events
@@ -187,7 +190,7 @@ projects: [{}]
     /// Load entry from storage
     pub fn load(
         date: &str,
-        storage: &EntryStorage,
+        storage: &dyn EntryStorage,
     ) -> Result<Option<Self>, Box<dyn std::error::Error>> {
         let events = storage.load_events(date)?;
         Ok(Entry::from_events(events))
@@ -453,7 +456,7 @@ mod tests {
         use tempfile::TempDir;
 
         let temp_dir = TempDir::new().unwrap();
-        let storage = EntryStorage::new(Some(temp_dir.path().to_path_buf())).unwrap();
+        let storage = LocalEntryStorage::new(Some(temp_dir.path().to_path_buf())).unwrap();
 
         // Simulate 'devlog new' command
         let entry = Entry::new(
