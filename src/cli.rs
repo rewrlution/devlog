@@ -36,6 +36,9 @@ pub enum Commands {
         /// Entry ID to display (format: YYYYMMDD)
         #[arg(value_name = "YYYYMMDD")]
         id: String,
+        /// Display human-readable format instead of raw markdown content
+        #[arg(long)]
+        formatted: bool,
     },
     /// List all entries
     List,
@@ -56,8 +59,8 @@ impl Cli {
             Commands::Edit { id } => {
                 Self::handle_edit_command(id, &storage)?;
             }
-            Commands::Show { id } => {
-                Self::handle_show_command(id, &storage)?;
+            Commands::Show { id, formatted } => {
+                Self::handle_show_command(id, formatted, &storage)?;
             }
             Commands::List => {
                 Self::handle_list_command(&storage)?;
@@ -146,6 +149,7 @@ impl Cli {
     /// Handle the show subcommand
     fn handle_show_command(
         id: String,
+        formatted: bool,
         storage: &dyn EntryStorage,
     ) -> Result<(), Box<dyn std::error::Error>> {
         // Validate ID format
@@ -160,7 +164,11 @@ impl Cli {
             }
         };
 
-        Self::display_default_format(&entry);
+        if formatted {
+            Self::display_default_format(&entry);
+        } else {
+            println!("{}", entry.to_markdown());
+        }
 
         Ok(())
     }
@@ -385,7 +393,7 @@ mod tests {
         entry.save(&storage).unwrap();
 
         // Test show command - should not panic
-        let result = Cli::handle_show_command("20250905".to_string(), &storage);
+        let result = Cli::handle_show_command("20250905".to_string(), false, &storage);
         assert!(result.is_ok());
     }
 
@@ -395,7 +403,7 @@ mod tests {
         let storage = LocalEntryStorage::new(Some(temp_dir.path().to_path_buf())).unwrap();
 
         // Test with invalid ID format
-        let result = Cli::handle_show_command("invalid".to_string(), &storage);
+        let result = Cli::handle_show_command("invalid".to_string(), false, &storage);
         assert!(result.is_err());
     }
 
