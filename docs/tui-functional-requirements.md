@@ -25,10 +25,6 @@ This document outlines the MVP functional requirements for the interactive termi
 - **/** or **s** - Search/filter entries (not-implemented placeholder for now)
 - **h** or **?** - Show help with all keybindings
 
----
-
-## Additional MVP Requirements (3 max)
-
 ### 4. Pagination Support
 
 - **Page Up/Down** or **Left/Right arrows** - Navigate between pages when there are many entries
