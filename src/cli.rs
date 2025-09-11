@@ -31,6 +31,12 @@ pub enum Commands {
         #[arg(long, value_name = "YYYYMMDD")]
         id: String,
     },
+    /// Show a specific entry
+    Show {
+        /// Entry ID to display (format: YYYYMMDD)
+        #[arg(value_name = "YYYYMMDD")]
+        id: String,
+    },
 }
 
 impl Cli {
@@ -47,6 +53,9 @@ impl Cli {
             }
             Commands::Edit { id } => {
                 Self::handle_edit_command(id, &storage)?;
+            }
+            Commands::Show { id } => {
+                Self::handle_show_command(id, &storage)?;
             }
         }
 
@@ -127,6 +136,63 @@ impl Cli {
         println!("Updated entry: {}", id);
 
         Ok(())
+    }
+
+    /// Handle the show subcommand
+    fn handle_show_command(
+        id: String,
+        storage: &EntryStorage,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        // Validate ID format
+        Self::validate_id_format(&id)?;
+
+        // Load the entry
+        let entry = match Entry::load(&id, storage)? {
+            Some(entry) => entry,
+            None => {
+                eprintln!("Entry with ID '{}' not found.", id);
+                process::exit(1);
+            }
+        };
+
+        Self::display_default_format(&entry);
+
+        Ok(())
+    }
+
+    /// Display entry in default human-readable format
+    fn display_default_format(entry: &Entry) {
+        let state = entry.current_state();
+
+        println!("Entry: {}", state.id);
+        println!("Created: {}", state.created_at.format("%Y-%m-%d %H:%M:%S"));
+        println!("Updated: {}", state.updated_at.format("%Y-%m-%d %H:%M:%S"));
+        println!();
+
+        // Display metadata if present
+        if !state.people.is_empty() || !state.projects.is_empty() || !state.tags.is_empty() {
+            println!("Metadata:");
+            if !state.people.is_empty() {
+                println!("  People: {}", state.people.join(", "));
+            }
+            if !state.projects.is_empty() {
+                println!("  Projects: {}", state.projects.join(", "));
+            }
+            if !state.tags.is_empty() {
+                println!("  Tags: {}", state.tags.join(", "));
+            }
+            println!();
+        }
+
+        println!("Content:");
+        println!("{}", Self::highlight_annotations(&state.content));
+    }
+
+    /// Highlight annotations in content for better readability
+    fn highlight_annotations(content: &str) -> String {
+        // For now, just return the content as-is
+        // In the future, we could add color highlighting for @person, ::project, +tag
+        content.to_string()
     }
 
     /// Validate that the ID is in YYYYMMDD format
@@ -215,6 +281,7 @@ impl Cli {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tempfile::TempDir;
 
     #[test]
     fn test_get_template() {
@@ -230,5 +297,69 @@ mod tests {
         let editor = Cli::find_available_editor();
         // Should return one of our supported editors or fallback to vi
         assert!(editor == "vi" || editor == "nano");
+    }
+
+    #[test]
+    fn test_validate_id_format_valid() {
+        assert!(Cli::validate_id_format("20250905").is_ok());
+        assert!(Cli::validate_id_format("20231231").is_ok());
+        assert!(Cli::validate_id_format("20240229").is_ok()); // Leap year
+    }
+
+    #[test]
+    fn test_validate_id_format_invalid() {
+        assert!(Cli::validate_id_format("2025905").is_err()); // Too short
+        assert!(Cli::validate_id_format("202509055").is_err()); // Too long
+        assert!(Cli::validate_id_format("20250932").is_err()); // Invalid day
+        assert!(Cli::validate_id_format("20251301").is_err()); // Invalid month
+        assert!(Cli::validate_id_format("abcd1234").is_err()); // Non-numeric
+        assert!(Cli::validate_id_format("").is_err()); // Empty
+    }
+
+    #[test]
+    fn test_highlight_annotations() {
+        let content = "Worked with @alice on ::project using +rust";
+        let result = Cli::highlight_annotations(content);
+        // For now, it should just return the content as-is
+        assert_eq!(result, content);
+    }
+
+    #[test]
+    fn test_show_command_with_valid_entry() {
+        let temp_dir = TempDir::new().unwrap();
+        let storage = EntryStorage::new(Some(temp_dir.path().to_path_buf())).unwrap();
+
+        // Create a test entry
+        let entry = Entry::new(
+            "Test content with @alice and +rust".to_string(),
+            "20250905".to_string(),
+        );
+        entry.save(&storage).unwrap();
+
+        // Test show command - should not panic
+        let result = Cli::handle_show_command("20250905".to_string(), &storage);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_show_command_with_invalid_id_format() {
+        let temp_dir = TempDir::new().unwrap();
+        let storage = EntryStorage::new(Some(temp_dir.path().to_path_buf())).unwrap();
+
+        // Test with invalid ID format
+        let result = Cli::handle_show_command("invalid".to_string(), &storage);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_display_function_with_empty_annotations() {
+        // Create a test entry with no annotations
+        let entry = Entry::new(
+            "Simple content with no annotations".to_string(),
+            "20250905".to_string(),
+        );
+
+        // These functions should handle empty annotations gracefully
+        Cli::display_default_format(&entry);
     }
 }
