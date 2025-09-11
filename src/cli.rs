@@ -1,5 +1,5 @@
 use crate::entry::Entry;
-use crate::storage::EntryStorage;
+use crate::storage::{EntryStorage, LocalEntryStorage};
 use chrono::{Local, NaiveDate};
 use clap::{Parser, Subcommand};
 use std::process;
@@ -45,7 +45,7 @@ impl Cli {
         let cli = Cli::parse();
         // TODO: read user defined storage path
         // For now, we use the default `base_dir`, which is `~/.devlog`
-        let storage = EntryStorage::new(None)?;
+        let storage = LocalEntryStorage::new(None)?;
 
         match cli.command {
             Commands::New { message, id } => {
@@ -66,7 +66,7 @@ impl Cli {
     fn handle_new_command(
         message: Option<String>,
         custom_id: Option<String>,
-        storage: &EntryStorage,
+        storage: &dyn EntryStorage,
     ) -> Result<(), Box<dyn std::error::Error>> {
         // Validate custom ID format if provided
         if let Some(ref id) = custom_id {
@@ -107,7 +107,7 @@ impl Cli {
     /// Handle the edit subcommand
     fn handle_edit_command(
         id: String,
-        storage: &EntryStorage,
+        storage: &dyn EntryStorage,
     ) -> Result<(), Box<dyn std::error::Error>> {
         // Load existing entry
         let mut entry = match Entry::load(&id, storage)? {

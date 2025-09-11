@@ -7,15 +7,24 @@ pub struct ParsedAnnotations {
     pub tags: Vec<String>,
 }
 
-/// Extract annotations from text content
-pub struct AnnotationParser {
+/// Trait for extracting annotations from text content
+pub trait AnnotationParser {
+    /// Extract all annotations from content
+    /// @alice -> people
+    /// ::search_engine -> projects
+    /// +motivation -> tags
+    fn parse(&self, content: &str) -> ParsedAnnotations;
+}
+
+/// Regex-based implementation of annotation parsing
+pub struct RegexAnnotationParser {
     people_regex: Regex,
     projects_regex: Regex,
     tags_regex: Regex,
 }
 
-impl AnnotationParser {
-    /// Create a new annotation parser with default patterns
+impl RegexAnnotationParser {
+    /// Create a new regex annotation parser with default patterns
     pub fn new() -> Self {
         Self {
             // Regex pattern: ([\w-]+): one or more word characters (letters/digits/underscore/hyphen)
@@ -36,12 +45,14 @@ impl AnnotationParser {
             .map(|m| m.as_str().to_string())
             .collect()
     }
+}
 
+impl AnnotationParser for RegexAnnotationParser {
     /// Extract all annotations from content
     /// @alice -> people
     /// ::search_engine -> projects
     /// +motivation -> tags
-    pub fn parse(&self, content: &str) -> ParsedAnnotations {
+    fn parse(&self, content: &str) -> ParsedAnnotations {
         ParsedAnnotations {
             people: self.extract_with_regex(content, &self.people_regex),
             projects: self.extract_with_regex(content, &self.projects_regex),
@@ -56,7 +67,7 @@ mod tests {
 
     #[test]
     fn test_parse_all_annotations() {
-        let parser = AnnotationParser::new();
+        let parser = RegexAnnotationParser::new();
         let content =
             "@alice helped with ::project, then @alice worked on ::project using +rust and +rust";
         let annotations = parser.parse(content);
@@ -77,7 +88,7 @@ mod tests {
 
     #[test]
     fn test_no_annotations() {
-        let parser = AnnotationParser::new();
+        let parser = RegexAnnotationParser::new();
         let content = "Just worked alone today on some regular code";
         let annotations = parser.parse(content);
 
@@ -88,7 +99,7 @@ mod tests {
 
     #[test]
     fn test_ignore_incomplete_annotations() {
-        let parser = AnnotationParser::new();
+        let parser = RegexAnnotationParser::new();
         let content = "The @ symbol alone or @ with space, :: without name, + without tag";
         let annotations = parser.parse(content);
 
@@ -99,7 +110,7 @@ mod tests {
 
     #[test]
     fn test_annotations_with_punctuation() {
-        let parser = AnnotationParser::new();
+        let parser = RegexAnnotationParser::new();
         let content = "Talked to @alice! Then worked on ::project? Finally learned +rust.";
         let annotations = parser.parse(content);
 
@@ -115,7 +126,7 @@ mod tests {
 
     #[test]
     fn test_multiline_content() {
-        let parser = AnnotationParser::new();
+        let parser = RegexAnnotationParser::new();
         let content = r#"
         Day 1: Met with @sarah about ::search_engine
         Day 2: @mike joined, we used +rust
@@ -144,7 +155,7 @@ mod tests {
 
     #[test]
     fn test_duplicates_preserved() {
-        let parser = AnnotationParser::new();
+        let parser = RegexAnnotationParser::new();
         let content =
             "@alice @bob @alice worked on ::proj1 ::proj2 ::proj1 using +rust +debug +rust";
         let annotations = parser.parse(content);
