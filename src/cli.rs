@@ -1,5 +1,6 @@
 use crate::entry::Entry;
 use crate::storage::EntryStorage;
+use chrono::{Local, NaiveDate};
 use clap::{Parser, Subcommand};
 use std::process;
 
@@ -20,10 +21,14 @@ pub enum Commands {
         /// Inline message for the entry
         #[arg(short, long)]
         message: Option<String>,
+        /// Optional ID for the entry (format: YYYMMDD)
+        #[arg(long, value_name = "YYYYMMDD")]
+        id: Option<String>,
     },
     /// Edit an existing entry
     Edit {
         /// Entry ID to edit (format: YYYYMMDD)
+        #[arg(long, value_name = "YYYYMMDD")]
         id: String,
     },
 }
@@ -37,8 +42,8 @@ impl Cli {
         let storage = EntryStorage::new(None)?;
 
         match cli.command {
-            Commands::New { message } => {
-                Self::handle_new_command(message, &storage)?;
+            Commands::New { message, id } => {
+                Self::handle_new_command(message, id, &storage)?;
             }
             Commands::Edit { id } => {
                 Self::handle_edit_command(id, &storage)?;
@@ -51,8 +56,23 @@ impl Cli {
     /// Handle the new subcommand
     fn handle_new_command(
         message: Option<String>,
+        custom_id: Option<String>,
         storage: &EntryStorage,
     ) -> Result<(), Box<dyn std::error::Error>> {
+        // Validate custom ID format if provided
+        if let Some(ref id) = custom_id {
+            Self::validate_id_format(id)?;
+        }
+        // Generate ID: use custom ID if provided, otherwise use current date
+        let id = custom_id.unwrap_or_else(|| format!("{}", Local::now().format("%Y%m%d")));
+
+        // Check if entry already exists to prevent data loss
+        if Entry::load(&id, storage)?.is_some() {
+            eprintln!("Entry with ID '{}' already exists.", id);
+            eprintln!("To edit the existing entry, use: devlog edit --id {}", id);
+            process::exit(1);
+        }
+
         let content = match message {
             Some(msg) => msg,
             None => Self::open_editor_for_content(None)?,
@@ -63,8 +83,8 @@ impl Cli {
             process::exit(1);
         }
 
-        // Create new entry
-        let entry = Entry::new(content);
+        // Create new entry with mandatory ID
+        let entry = Entry::new(content, id);
 
         // Save the entry
         entry.save(storage)?;
@@ -106,6 +126,13 @@ impl Cli {
 
         println!("Updated entry: {}", id);
 
+        Ok(())
+    }
+
+    /// Validate that the ID is in YYYYMMDD format
+    fn validate_id_format(id: &str) -> Result<(), Box<dyn std::error::Error>> {
+        NaiveDate::parse_from_str(id, "%Y%m%d")
+            .map(|_| format!("Invalid date format '{}'. Expected YYYYMMDD formate", id))?;
         Ok(())
     }
 
