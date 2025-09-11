@@ -146,7 +146,7 @@ impl Cli {
     /// Handle the show subcommand
     fn handle_show_command(
         id: String,
-        storage: &EntryStorage,
+        storage: &dyn EntryStorage,
     ) -> Result<(), Box<dyn std::error::Error>> {
         // Validate ID format
         Self::validate_id_format(&id)?;
@@ -166,7 +166,7 @@ impl Cli {
     }
 
     /// Handle the list subcommand
-    fn handle_list_command(storage: &EntryStorage) -> Result<(), Box<dyn std::error::Error>> {
+    fn handle_list_command(storage: &dyn EntryStorage) -> Result<(), Box<dyn std::error::Error>> {
         let entry_ids = storage.list_entry_ids()?;
 
         if entry_ids.is_empty() {
@@ -375,7 +375,7 @@ mod tests {
     #[test]
     fn test_show_command_with_valid_entry() {
         let temp_dir = TempDir::new().unwrap();
-        let storage = EntryStorage::new(Some(temp_dir.path().to_path_buf())).unwrap();
+        let storage = LocalEntryStorage::new(Some(temp_dir.path().to_path_buf())).unwrap();
 
         // Create a test entry
         let entry = Entry::new(
@@ -392,7 +392,7 @@ mod tests {
     #[test]
     fn test_show_command_with_invalid_id_format() {
         let temp_dir = TempDir::new().unwrap();
-        let storage = EntryStorage::new(Some(temp_dir.path().to_path_buf())).unwrap();
+        let storage = LocalEntryStorage::new(Some(temp_dir.path().to_path_buf())).unwrap();
 
         // Test with invalid ID format
         let result = Cli::handle_show_command("invalid".to_string(), &storage);

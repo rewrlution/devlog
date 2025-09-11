@@ -21,6 +21,9 @@ pub trait EntryStorage {
     /// Load markdown content
     #[allow(dead_code)]
     fn load_markdown(&self, date: &str) -> Result<Option<String>, Box<dyn std::error::Error>>;
+
+    /// List all entry IDs sorted in descending order (newest first)
+    fn list_entry_ids(&self) -> Result<Vec<String>, Box<dyn std::error::Error>>;
 }
 
 /// Local file system implementation of entry storage
@@ -52,41 +55,6 @@ impl LocalEntryStorage {
         fs::create_dir_all(base_dir.join("entries"))?;
 
         Ok(Self { base_dir })
-    }
-
-    /// List all entry IDs sorted in descending order (newest first)
-    pub fn list_entry_ids(&self) -> Result<Vec<String>, Box<dyn std::error::Error>> {
-        let entries_dir = self.base_dir.join("entries");
-
-        if !entries_dir.exists() {
-            return Ok(Vec::new());
-        }
-
-        let mut entry_ids = Vec::new();
-
-        for entry in fs::read_dir(entries_dir)? {
-            // Entry is Result<DirEntry, Error>, not DirEntry
-            // Each individual file/directory read operation could fail due to permission, corrupted filesystem, etc.
-            let entry = entry?;
-            let path = entry.path();
-
-            // Only process .md files
-            if path.is_file() && path.extension().map_or(false, |ext| ext == "md") {
-                // file_stem() returns the filename without its extension
-                // this method can return None for paths like `/` or `..`
-                // `to_str()` can return None if the fielname contains invalid UTF-8 characters
-                if let Some(file_stem) = path.file_stem() {
-                    if let Some(entry_id) = file_stem.to_str() {
-                        entry_ids.push(entry_id.to_string());
-                    }
-                }
-            }
-        }
-
-        // Sort in descending order
-        entry_ids.sort_by(|a, b| b.cmp(a));
-
-        Ok(entry_ids)
     }
 
     /// Get the event file path for a given date
@@ -157,6 +125,39 @@ impl EntryStorage for LocalEntryStorage {
 
         let content = fs::read_to_string(&markdown_path)?;
         Ok(Some(content))
+    }
+
+    /// List all entry IDs sorted in descending order (newest first)
+    fn list_entry_ids(&self) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+        let entries_dir = self.base_dir.join("entries");
+
+        if !entries_dir.exists() {
+            return Ok(Vec::new());
+        }
+
+        let mut entry_ids = Vec::new();
+
+        for entry in fs::read_dir(entries_dir)? {
+            // Entry is Result<DirEntry, Error>, not DirEntry
+            // Each individual file/directory read operation could fail due to permission, corrupted filesystem, etc.
+            let entry = entry?;
+
+            // Get the file name
+            let file_name = entry.file_name();
+            // Convert OsString to String
+            if let Some(file_name_str) = file_name.to_str() {
+                // Remove the .md extension
+                if file_name_str.ends_with(".md") {
+                    let entry_id = file_name_str.strip_suffix(".md").unwrap().to_string();
+                    entry_ids.push(entry_id);
+                }
+            }
+        }
+
+        // Sort entry IDs in descending order (newest first)
+        entry_ids.sort_by(|a, b| b.cmp(a));
+
+        Ok(entry_ids)
     }
 }
 
