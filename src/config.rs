@@ -5,7 +5,7 @@
 use anyhow::{Context, Ok, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct DevLogConfig {
@@ -120,5 +120,37 @@ impl DevLogConfig {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    #[test]
+    fn test_config_serialization() {
+        let config = DevLogConfig::default();
+        let toml_str = toml::to_string(&config).unwrap();
+        let parsed: DevLogConfig = toml::from_str(&toml_str).unwrap();
+
+        assert_eq!(config.remote.provider, parsed.remote.provider);
+        assert_eq!(config.remote.url, parsed.remote.url);
+    }
+
+    #[test]
+    fn test_config_validation() {
+        let mut config = DevLogConfig::default();
+
+        // Should fail - empty URL
+        assert!(config.validate().is_err());
+
+        // Should fail - non-HTTPS URL
+        config.remote.url = "http://example.com".to_string();
+        assert!(config.validate().is_err());
+
+        // Should succeeded
+        config.remote.url = "https://account.blob.core.windows.net/container".to_string();
+        assert!(config.validate().is_ok());
     }
 }
