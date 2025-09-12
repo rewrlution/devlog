@@ -47,7 +47,7 @@ Create the following new files in the `src/` directory:
 ```
 src/
 ├── config.rs          # Configuration management
-├── remote/           
+├── remote/
 │   ├── mod.rs         # Remote storage module
 │   └── azure.rs       # Azure-specific implementation
 ├── sync.rs            # Sync manager and logic
@@ -72,9 +72,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 Create empty module files with basic structure:
 
 **src/config.rs**:
+
 ```rust
 //! Configuration management for DevLog
-//! 
+//!
 //! This module handles reading and writing configuration files,
 //! particularly for remote storage settings.
 
@@ -82,6 +83,7 @@ Create empty module files with basic structure:
 ```
 
 **src/remote/mod.rs**:
+
 ```rust
 //! Remote storage abstractions and implementations
 
@@ -91,6 +93,7 @@ pub mod azure;
 ```
 
 **src/remote/azure.rs**:
+
 ```rust
 //! Azure Blob Storage implementation
 
@@ -98,6 +101,7 @@ pub mod azure;
 ```
 
 **src/sync.rs**:
+
 ```rust
 //! Synchronization manager and logic
 
@@ -123,6 +127,7 @@ mod sync;
 ## Expected Outputs
 
 After completing this task:
+
 - ✅ All new dependencies are added to Cargo.toml
 - ✅ Project compiles without errors
 - ✅ Module structure is in place
@@ -137,6 +142,7 @@ After completing this task:
 3. **Async Errors**: Ensure `#[tokio::main]` is added to your main function
 
 **Getting Help**:
+
 - Check Rust documentation: https://doc.rust-lang.org/book/
 - Tokio documentation: https://tokio.rs/
 - Ask about any Rust-specific concepts you don't understand
@@ -148,12 +154,14 @@ Once this task is complete, proceed to **Task 02: Configuration System** where w
 ## Rust Learning Notes
 
 **Key Concepts Introduced**:
+
 - **Cargo.toml**: Rust's package manager and build system
 - **Module System**: How Rust organizes code into modules
 - **Async/Await**: Rust's approach to asynchronous programming
 - **Dependencies**: External crates (libraries) and feature flags
 
 **Questions to Research**:
+
 1. What does the `features = ["derive"]` mean in serde dependency?
 2. How does Rust's module system work compared to other languages?
 3. What is the difference between `tokio::main` and regular `main`?

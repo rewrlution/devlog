@@ -45,7 +45,7 @@ impl LocalFile {
     /// Create a LocalFile from a path, calculating hash and metadata
     pub fn from_path(path: &Path, base_path: &Path) -> Result<Self> {
         let metadata = std::fs::metadata(path)?;
-        
+
         if !metadata.is_file() {
             anyhow::bail!("Path is not a file: {:?}", path);
         }
@@ -56,7 +56,7 @@ impl LocalFile {
             .replace('\\', "/");
 
         let hash = calculate_file_hash(path)?;
-        
+
         let modified_time = metadata.modified()?
             .duration_since(std::time::UNIX_EPOCH)?
             .as_secs();
@@ -96,9 +96,9 @@ impl FileScanner {
     pub fn new() -> Result<Self> {
         let home_dir = dirs::home_dir()
             .ok_or_else(|| anyhow::anyhow!("Unable to determine home directory"))?;
-        
+
         let base_path = home_dir.join(".devlog");
-        
+
         Ok(Self {
             base_path,
             include_patterns: vec![
@@ -134,7 +134,7 @@ impl FileScanner {
     /// Scan for all matching files
     pub fn scan_files(&self) -> Result<Vec<LocalFile>> {
         let mut files = Vec::new();
-        
+
         if !self.base_path.exists() {
             return Ok(files);
         }
@@ -287,7 +287,7 @@ pub mod changes {
         remote_storage: &dyn RemoteStorage,
     ) -> Result<Vec<FileChange>> {
         let mut changes = Vec::new();
-        
+
         // Get remote file list
         let remote_files = remote_storage.list_files("").await?;
         let remote_map: HashMap<String, RemoteFileInfo> = remote_files
@@ -304,7 +304,7 @@ pub mod changes {
         // Check for added and modified files
         for local_file in local_files {
             let remote_key = local_file.remote_key();
-            
+
             match remote_map.get(remote_key) {
                 None => {
                     // File doesn't exist remotely - it's new
@@ -388,7 +388,7 @@ mod tests {
         fs::write(&test_file, "Hello, World!").unwrap();
 
         let local_file = LocalFile::from_path(&test_file, temp_dir.path()).unwrap();
-        
+
         assert_eq!(local_file.relative_path, "test.txt");
         assert_eq!(local_file.size, 13);
         assert!(!local_file.hash.is_empty());
@@ -397,11 +397,11 @@ mod tests {
     #[test]
     fn test_file_scanner() {
         let temp_dir = tempdir().unwrap();
-        
+
         // Create test directory structure
         fs::create_dir_all(temp_dir.path().join("events")).unwrap();
         fs::create_dir_all(temp_dir.path().join("entries")).unwrap();
-        
+
         // Create test files
         fs::write(temp_dir.path().join("config.toml"), "test").unwrap();
         fs::write(temp_dir.path().join("events/test.jsonl"), "{}").unwrap();
@@ -412,7 +412,7 @@ mod tests {
         let files = scanner.scan_files().unwrap();
 
         assert_eq!(files.len(), 3); // config.toml, events/test.jsonl, entries/test.md
-        
+
         let keys: Vec<&str> = files.iter().map(|f| f.remote_key()).collect();
         assert!(keys.contains(&"config.toml"));
         assert!(keys.contains(&"events/test.jsonl"));
@@ -436,7 +436,7 @@ mod tests {
 
         let hash1 = calculate_file_hash(&test_file).unwrap();
         let hash2 = calculate_file_hash(&test_file).unwrap();
-        
+
         assert_eq!(hash1, hash2); // Same file should have same hash
         assert_eq!(hash1.len(), 64); // SHA256 produces 64 hex characters
     }
@@ -444,7 +444,7 @@ mod tests {
     #[tokio::test]
     async fn test_change_detection() {
         use crate::remote::MockStorage;
-        
+
         let temp_dir = tempdir().unwrap();
         let test_file = temp_dir.path().join("test.txt");
         fs::write(&test_file, "Hello, World!").unwrap();
@@ -478,6 +478,7 @@ echo 'provider = "azure"' > /tmp/test-devlog/config.toml
 ## Expected Outputs
 
 After completing this task:
+
 - ✅ `LocalFile` struct properly represents files with metadata
 - ✅ `FileScanner` discovers relevant files in `.devlog` directory
 - ✅ File hashing works correctly and consistently
@@ -495,6 +496,7 @@ After completing this task:
 4. **Hash Consistency**: Verify that identical files produce identical hashes
 
 **Testing Commands**:
+
 ```bash
 # Run all local tests
 cargo test local
@@ -513,6 +515,7 @@ Once this task is complete, proceed to **Task 05: CLI Command Structure** where 
 ## Rust Learning Notes
 
 **Key Concepts Introduced**:
+
 - **File I/O**: Reading files efficiently with buffers
 - **Path Manipulation**: Cross-platform path handling
 - **Pattern Matching**: Implementing glob patterns
@@ -520,6 +523,7 @@ Once this task is complete, proceed to **Task 05: CLI Command Structure** where 
 - **Collections**: Using HashMap for efficient lookups
 
 **Questions to Research**:
+
 1. Why do we use a buffer when reading files for hashing?
 2. How does `strip_prefix` work and when can it fail?
 3. What's the difference between `PathBuf` and `&Path`?

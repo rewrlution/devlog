@@ -70,17 +70,17 @@ impl DevLogConfig {
     pub fn config_file_path() -> Result<PathBuf> {
         let home_dir = dirs::home_dir()
             .context("Unable to determine home directory")?;
-        
+
         let devlog_dir = home_dir.join(".devlog");
         let config_path = devlog_dir.join("config.toml");
-        
+
         Ok(config_path)
     }
 
     /// Load configuration from file, or create default if file doesn't exist
     pub fn load() -> Result<Self> {
         let config_path = Self::config_file_path()?;
-        
+
         if !config_path.exists() {
             // Create default config and save it
             let default_config = Self::default();
@@ -100,7 +100,7 @@ impl DevLogConfig {
     /// Save configuration to file
     pub fn save(&self) -> Result<()> {
         let config_path = Self::config_file_path()?;
-        
+
         // Ensure the .devlog directory exists
         if let Some(parent) = config_path.parent() {
             std::fs::create_dir_all(parent)
@@ -161,16 +161,16 @@ pub mod utils {
     /// Initialize configuration with user prompts
     pub fn setup_config_interactive() -> Result<DevLogConfig> {
         println!("Setting up DevLog remote storage configuration...");
-        
+
         print!("Enter your Azure Storage URL (e.g., https://account.blob.core.windows.net/container): ");
         std::io::stdout().flush().unwrap();
-        
+
         let mut url = String::new();
         std::io::stdin().read_line(&mut url)
             .context("Failed to read user input")?;
-        
+
         let url = url.trim().to_string();
-        
+
         let config = DevLogConfig {
             remote: RemoteConfig {
                 provider: "azure".to_string(),
@@ -209,6 +209,7 @@ use std::io::Write;
 Create a template configuration file for documentation:
 
 **Create file: `docs/config-example.toml`**:
+
 ```toml
 # DevLog Configuration File
 # Location: ~/.devlog/config.toml
@@ -246,7 +247,7 @@ mod tests {
         let config = DevLogConfig::default();
         let toml_str = toml::to_string(&config).unwrap();
         let parsed: DevLogConfig = toml::from_str(&toml_str).unwrap();
-        
+
         assert_eq!(config.remote.provider, parsed.remote.provider);
         assert_eq!(config.remote.url, parsed.remote.url);
     }
@@ -254,14 +255,14 @@ mod tests {
     #[test]
     fn test_config_validation() {
         let mut config = DevLogConfig::default();
-        
+
         // Should fail - empty URL
         assert!(config.validate().is_err());
-        
+
         // Should fail - non-HTTPS URL
         config.remote.url = "http://example.com".to_string();
         assert!(config.validate().is_err());
-        
+
         // Should succeed
         config.remote.url = "https://account.blob.core.windows.net/container".to_string();
         assert!(config.validate().is_ok());
@@ -286,6 +287,7 @@ cargo test config
 ## Expected Outputs
 
 After completing this task:
+
 - ✅ Configuration structures are defined with proper serde annotations
 - ✅ Config file can be loaded from/saved to `~/.devlog/config.toml`
 - ✅ Default configuration is created when file doesn't exist
@@ -302,6 +304,7 @@ After completing this task:
 4. **File Not Found**: Make sure the parent directory creation logic works
 
 **Testing Commands**:
+
 ```bash
 # Check compilation
 cargo check
@@ -320,6 +323,7 @@ Once this task is complete, proceed to **Task 03: Remote Storage Trait** where w
 ## Rust Learning Notes
 
 **Key Concepts Introduced**:
+
 - **Serde**: Serialization/deserialization framework
 - **Error Handling**: Using `anyhow` and `Result<T, E>`
 - **Traits**: `Default`, `Debug`, `Clone`
@@ -327,6 +331,7 @@ Once this task is complete, proceed to **Task 03: Remote Storage Trait** where w
 - **Path Handling**: Cross-platform path manipulation
 
 **Questions to Research**:
+
 1. What does `#[derive(Debug, Deserialize, Serialize, Clone)]` do?
 2. How does `anyhow::Context` improve error messages?
 3. What's the difference between `String` and `&str` in Rust?
