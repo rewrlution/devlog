@@ -1,0 +1,17 @@
+# DevLog Configuration File
+# Location: ~/.devlog/config.toml
+
+[remote]
+# Cloud storage provider (currently only "azure" is supported)
+provider = "azure"
+
+# Azure Blob Storage URL
+# Format: https://<account>.blob.core.windows.net/<container>
+# Example: https://myaccount.blob.core.windows.net/devlog
+url = "https://your-storage-account.blob.core.windows.net/your-container"
+
+[sync]
+# Timestamp of the last successful push (managed automatically)
+# Format: RFC 3339 timestamp
+# Example: "2025-09-11T10:30:00Z"
+last_push_timestamp = "2025-09-11T10:30:00Z"
