@@ -67,49 +67,14 @@ Update your `Cargo.toml` to include async-trait:
 async-trait = "0.1"  # Enables async functions in traits
 ```
 
-### 3. Define Storage Errors
+### 3. Keep Error Handling Simple
 
-Create custom error types for better error handling:
+For MVP, we'll use `anyhow::Result` for error handling. This keeps things simple while still providing good error messages. We can add custom error types later if needed.
 
 ```rust
-use thiserror::Error;
-
-#[derive(Error, Debug)]
-pub enum StorageError {
-    #[error("File not found: {path}")]
-    FileNotFound { path: String },
-
-    #[error("Authentication failed: {message}")]
-    AuthenticationFailed { message: String },
-
-    #[error("Network error: {message}")]
-    NetworkError { message: String },
-
-    #[error("Configuration error: {message}")]
-    ConfigurationError { message: String },
-
-    #[error("Upload failed for {path}: {message}")]
-    UploadFailed { path: String, message: String },
-
-    #[error("Download failed for {path}: {message}")]
-    DownloadFailed { path: String, message: String },
-
-    #[error("Invalid remote key: {key}")]
-    InvalidRemoteKey { key: String },
-
-    #[error("Storage provider error: {message}")]
-    ProviderError { message: String },
-}
-
-impl StorageError {
-    pub fn is_not_found(&self) -> bool {
-        matches!(self, StorageError::FileNotFound { .. })
-    }
-
-    pub fn is_auth_error(&self) -> bool {
-        matches!(self, StorageError::AuthenticationFailed { .. })
-    }
-}
+// No custom error types needed for MVP - anyhow::Result is sufficient
+// We'll rely on the underlying libraries (Azure SDK, std::fs, etc.)
+// to provide meaningful error messages
 ```
 
 ### 4. Create Storage Factory
@@ -139,9 +104,9 @@ impl StorageFactory {
 }
 ```
 
-### 5. Add Utility Functions
+### 5. Add Essential Utility Functions
 
-Create helper functions for common operations:
+Create helper functions for the most common operations:
 
 ```rust
 /// Utility functions for remote storage operations
@@ -183,23 +148,6 @@ pub mod utils {
     pub fn remote_key_to_local_path(remote_key: &str, base_path: &Path) -> PathBuf {
         base_path.join(remote_key.replace('/', std::path::MAIN_SEPARATOR_STR))
     }
-
-    /// Validate remote key format
-    pub fn validate_remote_key(key: &str) -> Result<(), StorageError> {
-        if key.is_empty() {
-            return Err(StorageError::InvalidRemoteKey {
-                key: key.to_string(),
-            });
-        }
-
-        if key.contains("..") || key.starts_with('/') {
-            return Err(StorageError::InvalidRemoteKey {
-                key: key.to_string(),
-            });
-        }
-
-        Ok(())
-    }
 }
 ```
 
@@ -214,13 +162,12 @@ pub mod azure;
 pub mod utils;
 
 pub use self::{
-    RemoteStorage, RemoteFileInfo, StorageError, StorageFactory
+    RemoteStorage, RemoteFileInfo, StorageFactory
 };
 
 use std::path::{Path, PathBuf};
 use async_trait::async_trait;
 use anyhow::Result;
-use thiserror::Error;
 
 // ... (all the code from above tasks)
 ```
@@ -256,7 +203,7 @@ impl RemoteStorage for MockStorage {
     async fn download_file(&self, remote_key: &str, local_path: &Path) -> Result<()> {
         let files = self.files.lock().unwrap();
         let content = files.get(remote_key)
-            .ok_or_else(|| StorageError::FileNotFound { path: remote_key.to_string() })?;
+            .ok_or_else(|| anyhow::anyhow!("File not found: {}", remote_key))?;
 
         if let Some(parent) = local_path.parent() {
             std::fs::create_dir_all(parent)?;
@@ -362,20 +309,6 @@ mod tests {
         // Test remote key to local path conversion
         let result_path = utils::remote_key_to_local_path("events/20250911.jsonl", &base_path);
         assert_eq!(result_path, local_path);
-    }
-
-    #[test]
-    fn test_remote_key_validation() {
-        use utils::validate_remote_key;
-
-        // Valid keys
-        assert!(validate_remote_key("events/file.jsonl").is_ok());
-        assert!(validate_remote_key("config.toml").is_ok());
-
-        // Invalid keys
-        assert!(validate_remote_key("").is_err());
-        assert!(validate_remote_key("../evil").is_err());
-        assert!(validate_remote_key("/absolute/path").is_err());
     }
 }
 ```

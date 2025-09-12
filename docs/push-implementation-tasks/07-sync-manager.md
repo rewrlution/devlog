@@ -1,153 +1,463 @@
 # Task 07: Sync Manager Implementation
 
-**Estimated Time**: 3-4 hours  
-**Difficulty**: ⭐⭐⭐ Intermediate-Advanced  
+**Estimated Time**: 2-3 hours  
+**Difficulty**: ⭐⭐⭐ Intermediate  
 **Prerequisites**: Tasks 01-06 completed
 
 ## Objective
 
-Implement the core synchronization logic that orchestrates file scanning, change detection, and upload operations using the Azure storage client and local file utilities.
+Implement the core synchronization logic that orchestrates file scanning, change detection, and upload operations. We'll keep this simple for MVP and focus on the core flow.
 
 ## What You'll Learn
 
-- Orchestrating complex async operations
-- Change detection algorithms
-- Progress tracking and reporting
-- Error recovery and partial failure handling
-- State management for sync operations
+- Orchestrating async operations in Rust
+- Basic change detection
+- Simple progress reporting
+- Error handling in complex operations
 
 ## Tasks
 
-### 1. Define Sync Data Structures
+### 1. Define Simple Sync Data Structures
 
 In `src/sync.rs`, define the core data structures:
 
 ```rust
-//! Synchronization manager and logic for DevLog
+//! Synchronization manager for DevLog
 
 use crate::config::DevLogConfig;
-use crate::local::{FileScanner, LocalFile, changes::{FileChange, detect_changes}};
 use crate::remote::{RemoteStorage, StorageFactory};
 use anyhow::Result;
-use chrono::{DateTime, Utc};
 use std::path::Path;
 
 /// Options for push operations
 #[derive(Debug, Clone)]
 pub struct PushOptions {
-    pub mode: PushMode,
-    pub force: bool,
     pub dry_run: bool,
+    pub force: bool,
 }
 
-/// Push mode enum (re-exported from CLI)
-#[derive(Debug, Clone)]
-pub enum PushMode {
-    Incremental,
-    All,
-}
-
-/// Result of a push operation
+/// Simple result of a push operation
 #[derive(Debug)]
 pub struct PushResult {
     pub files_uploaded: usize,
     pub files_skipped: usize,
     pub total_bytes: u64,
-    pub duration: std::time::Duration,
-    pub errors: Vec<SyncError>,
 }
 
-/// Sync-specific errors
-#[derive(Debug, thiserror::Error)]
-pub enum SyncError {
-    #[error("File upload failed: {path} - {message}")]
-    UploadFailed { path: String, message: String },
-
-    #[error("File scan failed: {message}")]
-    ScanFailed { message: String },
-
-    #[error("Change detection failed: {message}")]
-    ChangeDetectionFailed { message: String },
-
-    #[error("Configuration error: {message}")]
-    ConfigurationError { message: String },
+/// Simple sync manager
+pub struct SyncManager {
+    config: DevLogConfig,
+    storage: Box<dyn RemoteStorage>,
 }
+```
 
-/// Progress callback for reporting upload progress
-pub trait ProgressReporter: Send + Sync {
-    fn report_scan_start(&self, base_path: &Path);
-    fn report_scan_complete(&self, file_count: usize);
-    fn report_change_detection_start(&self);
-    fn report_change_detection_complete(&self, changes: usize);
-    fn report_upload_start(&self, file_count: usize, total_bytes: u64);
-    fn report_file_upload_start(&self, file_path: &str, size: u64);
-    fn report_file_upload_complete(&self, file_path: &str);
-    fn report_file_upload_error(&self, file_path: &str, error: &str);
-    fn report_upload_complete(&self, result: &PushResult);
-}
+### 2. Implement Core Sync Manager
 
-/// Console progress reporter
-pub struct ConsoleProgressReporter {
-    start_time: std::sync::Mutex<Option<std::time::Instant>>,
-}
+Continue in `src/sync.rs`:
 
-impl ConsoleProgressReporter {
-    pub fn new() -> Self {
-        Self {
-            start_time: std::sync::Mutex::new(None),
+````rust
+impl SyncManager {
+    /// Create a new sync manager
+    pub fn new(config: DevLogConfig) -> Result<Self> {
+        let storage = StorageFactory::create_storage(&config.remote)?;
+
+        Ok(Self {
+            config,
+            storage,
+        })
+    }
+
+    /// Push files to remote storage
+    pub async fn push(&self, options: &PushOptions) -> Result<PushResult> {
+        println!("🔍 Scanning for files...");
+
+        // Get all files that should be synced
+        let local_files = self.scan_local_files().await?;
+        println!("📁 Found {} files", local_files.len());
+
+        if local_files.is_empty() {
+            return Ok(PushResult {
+                files_uploaded: 0,
+                files_skipped: 0,
+                total_bytes: 0,
+            });
         }
-    }
-}
 
-impl ProgressReporter for ConsoleProgressReporter {
-    fn report_scan_start(&self, base_path: &Path) {
-        println!("🔍 Scanning files in {:?}...", base_path);
-    }
-
-    fn report_scan_complete(&self, file_count: usize) {
-        println!("📁 Found {} files to consider", file_count);
-    }
-
-    fn report_change_detection_start(&self) {
-        println!("🔄 Detecting changes...");
-    }
-
-    fn report_change_detection_complete(&self, changes: usize) {
-        if changes == 0 {
-            println!("✨ No changes detected");
+        // Determine which files need uploading
+        let files_to_upload = if options.force {
+            // Force mode: upload all files
+            local_files
         } else {
-            println!("📝 {} file(s) need to be uploaded", changes);
+            // Normal mode: only upload files that don't exist remotely or have changed
+            self.filter_files_needing_upload(local_files).await?
+        };
+
+        println!("📝 {} file(s) need uploading", files_to_upload.len());
+
+        if options.dry_run {
+            println!("🏃 Dry run mode - no files uploaded");
+            return Ok(PushResult {
+                files_uploaded: 0,
+                files_skipped: files_to_upload.len(),
+                total_bytes: files_to_upload.iter().map(|f| f.size).sum(),
+            });
+        }
+
+        // Upload the files
+        self.upload_files(files_to_upload).await
+    }
+
+    /// Scan local files that should be synced
+    async fn scan_local_files(&self) -> Result<Vec<LocalFileInfo>> {
+        let mut files = Vec::new();
+
+        // Scan the base directory for relevant files
+        self.scan_directory(&self.config.base_path, &mut files).await?;
+
+        Ok(files)
+    }
+
+    /// Recursively scan a directory for files
+    async fn scan_directory(&self, dir: &Path, files: &mut Vec<LocalFileInfo>) -> Result<()> {
+        let mut entries = tokio::fs::read_dir(dir).await?;
+
+        while let Some(entry) = entries.next_entry().await? {
+            let path = entry.path();
+
+            if path.is_file() {
+                // Check if this file should be synced
+                if self.should_sync_file(&path) {
+                    let metadata = entry.metadata().await?;
+                    let relative_path = path.strip_prefix(&self.config.base_path)?;
+                    let remote_key = relative_path.to_string_lossy().replace('\\', "/");
+
+                    files.push(LocalFileInfo {
+                        local_path: path,
+                        remote_key,
+                        size: metadata.len(),
+                        modified: metadata.modified()?.into(),
+                    });
+                }
+            } else if path.is_dir() && !self.should_skip_directory(&path) {
+                // Recursively scan subdirectories
+                self.scan_directory(&path, files).await?;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Check if a file should be synced
+    fn should_sync_file(&self, path: &Path) -> bool {
+        // Only sync specific file types for devlog
+        if let Some(extension) = path.extension() {
+            matches!(extension.to_str(), Some("jsonl") | Some("toml") | Some("md"))
+        } else {
+            false
         }
     }
 
-    fn report_upload_start(&self, file_count: usize, total_bytes: u64) {
-        *self.start_time.lock().unwrap() = Some(std::time::Instant::now());
-        println!("⬆️  Uploading {} file(s) ({} bytes)...", file_count, total_bytes);
+    /// Check if a directory should be skipped
+    fn should_skip_directory(&self, path: &Path) -> bool {
+        if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+            // Skip hidden directories and common ignore patterns
+            name.starts_with('.') || name == "target" || name == "node_modules"
+        } else {
+            false
+        }
     }
 
-    fn report_file_upload_start(&self, file_path: &str, size: u64) {
-        println!("  📤 {} ({} bytes)", file_path, size);
+    /// Filter files that need uploading (simple version)
+    async fn filter_files_needing_upload(&self, files: Vec<LocalFileInfo>) -> Result<Vec<LocalFileInfo>> {
+        let mut files_to_upload = Vec::new();
+
+        for file in files {
+            // Simple check: upload if file doesn't exist remotely
+            let exists = self.storage.file_exists(&file.remote_key).await?;
+
+            if !exists {
+                files_to_upload.push(file);
+            } else {
+                println!("  ⏭️  Skipping {} (already exists)", file.remote_key);
+            }
+### 3. Update Main Module
+
+Update `src/main.rs` to use the sync manager:
+
+```rust
+// Add to your main.rs or wherever you handle the push command
+
+use crate::sync::{SyncManager, PushOptions};
+
+// In your push command handler:
+pub async fn handle_push_command(config: DevLogConfig, dry_run: bool, force: bool) -> Result<()> {
+    let sync_manager = SyncManager::new(config)?;
+
+    let options = PushOptions {
+        dry_run,
+        force,
+    };
+
+    let result = sync_manager.push(&options).await?;
+
+    if result.files_uploaded > 0 {
+        println!("📊 Summary:");
+        println!("   Files uploaded: {}", result.files_uploaded);
+        println!("   Total bytes: {}", result.total_bytes);
     }
 
-    fn report_file_upload_complete(&self, file_path: &str) {
-        println!("  ✅ {}", file_path);
+    Ok(())
+}
+````
+
+## Validation Steps
+
+### 1. Unit Tests
+
+Create tests in `src/sync.rs`:
+
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+    use crate::config::{DevLogConfig, RemoteConfig};
+
+    fn create_test_config() -> DevLogConfig {
+        let temp_dir = tempdir().unwrap();
+        DevLogConfig {
+            base_path: temp_dir.path().to_path_buf(),
+            remote: RemoteConfig {
+                provider: "azure".to_string(),
+                url: "https://test.blob.core.windows.net/test".to_string(),
+            },
+        }
     }
 
-    fn report_file_upload_error(&self, file_path: &str, error: &str) {
-        println!("  ❌ {}: {}", file_path, error);
+    #[tokio::test]
+    async fn test_scan_local_files() {
+        let config = create_test_config();
+
+        // Create test files
+        tokio::fs::create_dir_all(&config.base_path).await.unwrap();
+        tokio::fs::write(config.base_path.join("test.jsonl"), "test data").await.unwrap();
+        tokio::fs::write(config.base_path.join("config.toml"), "test config").await.unwrap();
+        tokio::fs::write(config.base_path.join("ignore.txt"), "ignored").await.unwrap();
+
+        // Note: This test would need a mock storage implementation
+        // For now, we'll test the scan logic separately
     }
 
-    fn report_upload_complete(&self, result: &PushResult) {
-        let duration = self.start_time.lock().unwrap()
-            .map(|start| start.elapsed())
-            .unwrap_or(result.duration);
+    #[test]
+    fn test_should_sync_file() {
+        let config = create_test_config();
+        let sync_manager = SyncManager::new(config).unwrap();
 
-        println!();
-        if result.files_uploaded > 0 {
-            println!("✅ Upload complete!");
-            println!("   Files uploaded: {}", result.files_uploaded);
-            if result.files_skipped > 0 {
-                println!("   Files skipped: {}", result.files_skipped);
+        // Should sync these files
+        assert!(sync_manager.should_sync_file(Path::new("events/2023.jsonl")));
+        assert!(sync_manager.should_sync_file(Path::new("config.toml")));
+        assert!(sync_manager.should_sync_file(Path::new("README.md")));
+
+        // Should not sync these files
+        assert!(!sync_manager.should_sync_file(Path::new("temp.tmp")));
+        assert!(!sync_manager.should_sync_file(Path::new("binary.exe")));
+    }
+}
+```
+
+### 2. Integration Test
+
+```bash
+# Build the project
+cargo build
+
+# Run tests
+cargo test sync
+
+# Test with dry run
+./target/debug/devlog push --dry-run
+
+# Test with force flag
+./target/debug/devlog push --force --dry-run
+```
+
+## Expected Outputs
+
+After completing this task:
+
+- ✅ Sync manager can scan local files and identify sync candidates
+- ✅ Basic change detection works (files that don't exist remotely)
+- ✅ File upload process works with progress reporting
+- ✅ Dry run mode works without uploading files
+- ✅ Force mode uploads all files regardless of remote state
+- ✅ Error handling allows continued operation when individual files fail
+
+## Troubleshooting
+
+**Common Issues**:
+
+1. **File Permission Errors**:
+
+   ```bash
+   # Check file permissions
+   ls -la ~/.devlog/
+   ```
+
+2. **Path Issues**:
+
+   - Ensure base_path in config points to correct directory
+   - Check that directory contains .jsonl, .toml, or .md files
+
+3. **Azure Connection Issues**:
+   ```bash
+   # Verify environment variable
+   echo $AZURE_STORAGE_ACCOUNT_KEY
+   ```
+
+**Testing Commands**:
+
+```bash
+# Test scanning only
+cargo test sync::tests::test_scan_local_files
+
+# Test file filtering
+cargo test sync::tests::test_should_sync_file
+
+# Test full dry run
+./target/debug/devlog push --dry-run
+```
+
+## Next Steps
+
+Once this task is complete, proceed to **Task 08: Progress and Error Handling** where we can add more sophisticated progress reporting and error recovery if needed.
+
+## Rust Learning Notes
+
+**Key Concepts Introduced**:
+
+- **Async Orchestration**: Coordinating multiple async operations
+- **File System Operations**: Using `tokio::fs` for async file operations
+- **Error Propagation**: Using `?` operator throughout async functions
+- **Iterator Methods**: Using `map`, `filter`, and `collect` on file collections
+- **Pattern Matching**: Using `matches!` macro for file extension checking
+
+**Design Decisions for MVP**:
+
+1. **Simple Change Detection**: Only check if files exist remotely (vs. hash comparison)
+2. **Basic Progress Reporting**: Simple println! statements (vs. progress bars)
+3. **Continue on Error**: Don't fail entire sync if one file fails
+4. **File Type Filtering**: Only sync known devlog file types
+5. **No State Persistence**: Don't track sync state between runs (keep it simple)
+
+**Questions to Research**:
+
+1. How do async file operations work in Rust?
+2. What's the difference between `tokio::fs` and `std::fs`?
+3. How does error propagation work with the `?` operator in async functions?
+4. What are the trade-offs between failing fast vs. continuing on error?
+
+````
+### 3. Update Main Module
+
+Update `src/main.rs` to use the sync manager:
+
+```rust
+// Add to your main.rs or wherever you handle the push command
+
+use crate::sync::{SyncManager, PushOptions};
+
+// In your push command handler:
+pub async fn handle_push_command(config: DevLogConfig, dry_run: bool, force: bool) -> Result<()> {
+    let sync_manager = SyncManager::new(config)?;
+
+    let options = PushOptions {
+        dry_run,
+        force,
+    };
+
+    let result = sync_manager.push(&options).await?;
+
+    if result.files_uploaded > 0 {
+        println!("📊 Summary:");
+        println!("   Files uploaded: {}", result.files_uploaded);
+        println!("   Total bytes: {}", result.total_bytes);
+    }
+
+    Ok(())
+}
+````
+
+## Validation Steps
+
+### 1. Unit Tests
+
+Create tests in `src/sync.rs`:
+
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+    use crate::config::{DevLogConfig, RemoteConfig};
+
+    fn create_test_config() -> DevLogConfig {
+        let temp_dir = tempdir().unwrap();
+        DevLogConfig {
+            base_path: temp_dir.path().to_path_buf(),
+            remote: RemoteConfig {
+                provider: "azure".to_string(),
+                url: "https://test.blob.core.windows.net/test".to_string(),
+            },
+        }
+    }
+
+    #[tokio::test]
+    async fn test_scan_local_files() {
+        let config = create_test_config();
+
+        // Create test files
+        tokio::fs::create_dir_all(&config.base_path).await.unwrap();
+        tokio::fs::write(config.base_path.join("test.jsonl"), "test data").await.unwrap();
+        tokio::fs::write(config.base_path.join("config.toml"), "test config").await.unwrap();
+        tokio::fs::write(config.base_path.join("ignore.txt"), "ignored").await.unwrap();
+
+        // Note: This test would need a mock storage implementation
+        // For now, we'll test the scan logic separately
+    }
+
+    #[test]
+    fn test_should_sync_file() {
+        let config = create_test_config();
+        let sync_manager = SyncManager::new(config).unwrap();
+
+        // Should sync these files
+        assert!(sync_manager.should_sync_file(Path::new("events/2023.jsonl")));
+        assert!(sync_manager.should_sync_file(Path::new("config.toml")));
+        assert!(sync_manager.should_sync_file(Path::new("README.md")));
+
+        // Should not sync these files
+        assert!(!sync_manager.should_sync_file(Path::new("temp.tmp")));
+        assert!(!sync_manager.should_sync_file(Path::new("binary.exe")));
+    }
+}
+```
+
+### 2. Integration Test
+
+```bash
+# Build the project
+cargo build
+
+# Run tests
+cargo test sync
+
+# Test with dry run
+./target/debug/devlog push --dry-run
+
+# Test with force flag
+./target/debug/devlog push --force --dry-run
+```
+
             }
             println!("   Total size: {} bytes", result.total_bytes);
             println!("   Duration: {:.2}s", duration.as_secs_f64());
@@ -162,8 +472,10 @@ impl ProgressReporter for ConsoleProgressReporter {
             }
         }
     }
+
 }
-```
+
+````
 
 ### 2. Implement the Core Sync Manager
 
@@ -387,7 +699,7 @@ impl SyncManager {
         result
     }
 }
-```
+````
 
 ### 3. Update CLI Integration
 
