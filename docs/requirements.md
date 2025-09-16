@@ -1,101 +1,222 @@
-# Functional Requirements
+# Engineering Journal App - MVP Functional Requirements
 
-## 1. Core Entry Management
+## Project Overview
 
-- **Create a new entry**
+A terminal-based journal keeping application designed specifically for engineers, built with Rust and `ratatui`. The app provides a vim-like navigation experience with efficient keyboard shortcuts for managing daily journal entries.
 
-  - `devlog new -m "message"` → inline note
-  - `devlog new` → open \$EDITOR for detailed entry
-  - Support YAML frontmatter (date, tags, people, projects) + Markdown body
+## Core Functionality (MVP)
 
-- **Edit an entry**
+### 1. Entry Management (CRUD Operations)
 
-  - `devlog edit <id>` → open existing entry in \$EDITOR
+#### Create Entry
 
-- **List entries**
+- **Entry ID Format**: `YYYYMMDD` (e.g., `20250915`)
+- **Auto-creation**: Automatically create today's entry if it doesn't exist
+- **Manual creation**: Allow creating entries for specific dates
 
-  - `devlog list [--since <date>] [--until <date>] [--tag <tag>] [--project <project>] [--person <@name>]`
+#### Read/View Entry
 
-- **Show entry**
+- Display entry content in a dedicated view pane
+- Show entry in plain text format
 
-  - `devlog show <id>` → display entry details
+#### Update Entry
 
----
+- Modify existing entry content using built-in editor
+- Save changes when user explicitly saves (Ctrl+S or :w)
 
-## 2. Annotation & Metadata
+#### Delete Entry
 
-- **Inline annotations (Markdown-compatible):**
+- Simple delete with confirmation prompt
 
-  - `@alice` → coworker/person
-  - `::search-service` → project
-  - `+motivation` → tag/technology
+### 2. Navigation System
 
-- **Auto-extraction of metadata** into YAML frontmatter for easy querying.
-- **Configurable dictionary** to autocomplete/validate coworkers, projects, tags.
+#### Hierarchical Navigation Structure
 
----
+```
+Year (2025)
+├── Month (Jan, Feb, Mar...)
+│   ├── Day (01, 02, 03...)
+│   │   └── Entry Content
+```
 
-## 3. Stats & Insights
+#### Keyboard Navigation (Vim-inspired + Arrow Keys)
 
-- **Generate summary reports**:
+```
+Movement (Vim-style):
+- h / ←: Move left (collapse/go to parent level)
+- j / ↓: Move down (next item in current level)
+- k / ↑: Move up (previous item in current level)
+- l / →: Move right (expand/go to child level)
 
-  - Collaboration list (who you work with most)
-  - Top projects mentioned
-  - Sentiment/motivation trend over time
-  - Frequency of blockers/issues
+Entry Management:
+- Enter: Open/Edit selected entry (creates if doesn't exist)
+- n: Create new entry for today
+- c: Create entry for specific date (prompts for YYYYMMDD)
+- d: Delete selected entry (with confirmation)
+- Space: Toggle expand/collapse
 
-- CLI command: `devlog stats [--since <date>]`
+Mode & Application:
+- ESC: Return to navigation mode (from edit mode)
+- Ctrl+S: Save entry (in edit mode)
+- q: Quit application
+```
 
----
+#### Smart Navigation Features
 
-## 4. Exporting
+- **Year View**: Navigate between years (2023, 2024, 2025...)
+- **Month View**: Navigate months within a year (Jan, Feb, Mar...)
+- **Day View**: Navigate days within a month (01, 02, 03...)
+- **Breadcrumb Navigation**: Always show current location (2025 > Mar > 15)
 
-- **Brag doc export**
+### 3. User Interface Design
 
-  - `devlog export --since last-quarter --format markdown`
-  - Generates bullet points grouped by project, theme, or outcome
+#### Main Layout
 
-- Support export formats: Markdown, CSV (others later: PDF, HTML).
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Engineering Journal v1.0                           [h] Help │
+├─────────────────────────────────────────────────────────────┤
+│ Navigation: 2025 > March > 15                               │
+├─────────────────┬───────────────────────────────────────────┤
+│ Tree View       │ Entry Content                             │
+│                 │                                           │
+│ ▼ 2025          │ # March 15, 2025                          │
+│   ▼ March       │                                           │
+│     • 01        │ ## Daily Standup                          │
+│     • 03        │ - Fixed authentication bug                │
+│     • 07        │ - Reviewed PR #123                        │
+│     ● 15        │                                           │
+│     • 28        │ ## Technical Notes                        │
+│   ▼ April       │ Discovered interesting pattern in...      │
+│     • 02        │                                           │
+│     • 05        │                                           │
+│   ▶ May         │                                           │
+│                 │                                           │
+│                 │                                           │
+├─────────────────┴───────────────────────────────────────────┤
+│ [hjkl/↑↓←→] Nav [Enter] Edit [n] New [c] Create [d] Del [q] Quit │
+└─────────────────────────────────────────────────────────────┘
+```
 
----
+#### Visual Indicators
 
-## 5. Sync & Storage
+- `▼` Expanded folder (year/month)
+- `▶` Collapsed folder
+- `●` Current/selected entry
+- `•` Available entry
 
-- **Local-first storage**
+### 3. Built-in Editor
 
-  - Entries stored in `~/.devlog/entries/YYYY-MM-DD.md`
-  - Markdown + YAML frontmatter
+#### Editor Modes
 
-- **Sync command** (premium/extension):
+- **Navigation Mode**: Browse entries using hjkl/arrow key navigation
+- **Edit Mode**: Edit entry content with basic text editing capabilities
 
-  - `devlog sync` → push to remote (e.g., Git repo, web dashboard, cloud backup).
+#### Editor Key Bindings
 
----
+```
+Navigation Mode:
+- hjkl / ↑↓←→: Navigate tree
+- Enter: Open entry for editing (creates if doesn't exist)
+- n: Create new entry for today
+- c: Create entry for specific date (prompts for YYYYMMDD)
+- d: Delete selected entry (with confirmation)
+- Space: Toggle expand/collapse
+- q: Quit application
 
-## 6. Config & Customization
+Edit Mode:
+- ESC: Return to navigation mode
+- Ctrl+S: Save entry
+- Basic text editing (insert, delete, arrow keys for cursor movement)
+- Ctrl+L: Clear screen/refresh
+```
 
-- **Config file** at `~/.devlog/config.yml`:
+#### Editor Features
 
-  - Default editor
-  - Known coworkers, projects, tags
-  - Sync settings
+- Simple text editing capabilities
+- Line-based editing
+- Basic cursor movement with arrow keys
+- Insert and delete text
 
-- **Templates** for entries (daily, weekly retro).
+### 4. Data Storage
 
----
+#### File Structure
 
-## 7. Extensibility Hooks (future)
+```
+~/.config/engineering-journal/
+├── entries/
+│   ├── 2025/
+│   │   ├── 01/
+│   │   │   ├── 20250101.md
+│   │   │   ├── 20250102.md
+│   │   │   └── ...
+│   │   ├── 02/
+│   │   └── ...
+│   └── 2024/
+```
 
-- **IDE integration**: VS Code/JetBrains extension reusing CLI backend.
-- **Slack/Discord integration**: `/devlog` command → append entry.
-- **Git integration**: auto-suggest commits/issues for context.
+#### Entry Format
 
----
+- **File Format**: Plain text (`.txt`) or Markdown (`.md`)
+- **Naming Convention**: `YYYYMMDD.md`
+- **Content**: Simple text content without metadata
 
-✅ **MVP focus** (phase 1):
+### 5. Common Workflows
 
-- Entry creation (`new`, `list`, `show`, `edit`)
-- Annotation parsing (`@`, `::`, `+`)
-- Local Markdown storage with YAML frontmatter
-- Basic `stats` (counts, top collaborators/projects)
-- Basic `export` (Markdown brag doc)
+#### Creating Entries
+
+**Scenario 1: Create today's entry**
+
+1. Press `n` from anywhere in navigation mode
+2. App creates entry for current date and opens editor
+3. User writes content and saves with `Ctrl+S`
+
+**Scenario 2: Create entry for specific date**
+
+1. Press `c` from anywhere in navigation mode
+2. App prompts for date input (YYYYMMDD format)
+3. App creates entry for specified date and opens editor
+4. User writes content and saves with `Ctrl+S`
+
+#### Deleting Entries
+
+**Delete workflow**
+
+1. Navigate to existing entry
+2. Press `d` to delete
+3. App shows confirmation prompt: "Delete entry for YYYYMMDD? (y/N)"
+4. Press `y` to confirm or `n`/`ESC` to cancel
+5. If confirmed, entry is deleted and removed from tree view
+
+#### Editing Existing Entries
+
+**Edit workflow**
+
+1. Navigate to existing entry using hjkl/arrows
+2. Press `Enter` to open editor
+3. Modify content using basic text editing
+4. Save with `Ctrl+S` and return to navigation with `ESC`
+
+## Implementation Plan
+
+### MVP Features (Phase 1)
+
+1. Basic file structure creation and management
+2. Hierarchical navigation with hjkl/arrow key support
+3. Entry creation with YYYYMMDD format
+4. Simple built-in text editor with two modes
+5. Save/load entries from filesystem
+6. Basic UI layout with tree view and content pane
+
+### Key Implementation Focus
+
+- **Navigation**: Smooth hjkl + arrow key navigation between years/months/days
+- **Editor**: Simple two-mode system (navigation vs edit)
+- **File I/O**: Basic read/write operations for entry files
+- **UI**: Clean split-pane layout with ratatui widgets
+
+### Success Criteria
+
+- **Usability**: Engineers can efficiently create and navigate entries using familiar key bindings
+- **Performance**: Fast navigation between entries without lag
+- **Simplicity**: Intuitive interface that doesn't require documentation to use
