@@ -151,3 +151,70 @@ impl EntryTree {
         self.get_all_dates().into_iter().next()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn create_test_entry(year: i32, month: u32, day: u32, content: &str) -> Entry {
+        let date = NaiveDate::from_ymd_opt(year, month, day).unwrap();
+        Entry::with_content(date, content.to_string())
+    }
+
+    #[test]
+    fn test_empty_tree() {
+        let tree = EntryTree::new();
+        assert!(tree.is_empty());
+        assert!(tree.get_latest_date().is_none());
+        assert!(tree.get_earliest_date().is_none());
+    }
+
+    #[test]
+    fn test_add_single_entry() {
+        let mut tree = EntryTree::new();
+        let entry = create_test_entry(2025, 3, 15, "Test entry");
+        let date = entry.date;
+
+        tree.add_entry(entry);
+
+        assert!(!tree.is_empty());
+        assert!(tree.get_entry(&date).is_some());
+    }
+
+    #[test]
+    fn test_multiple_entries() {
+        let mut tree = EntryTree::new();
+
+        tree.add_entry(create_test_entry(2025, 3, 15, "Entry 1"));
+        tree.add_entry(create_test_entry(2025, 3, 16, "Entry 2"));
+        tree.add_entry(create_test_entry(2025, 4, 1, "Entry 3"));
+        tree.add_entry(create_test_entry(2024, 12, 31, "Entry 4"));
+
+        let all_dates = tree.get_all_dates();
+        assert_eq!(all_dates.len(), 4);
+
+        // Should be in chronological order
+        assert_eq!(all_dates[0], NaiveDate::from_ymd_opt(2024, 12, 31).unwrap());
+        assert_eq!(all_dates[1], NaiveDate::from_ymd_opt(2025, 3, 15).unwrap());
+        assert_eq!(all_dates[2], NaiveDate::from_ymd_opt(2025, 3, 16).unwrap());
+        assert_eq!(all_dates[3], NaiveDate::from_ymd_opt(2025, 4, 1).unwrap());
+    }
+
+    #[test]
+    fn test_latest_and_earliest() {
+        let mut tree = EntryTree::new();
+
+        tree.add_entry(create_test_entry(2025, 3, 15, "Middle"));
+        tree.add_entry(create_test_entry(2025, 4, 1, "Latest"));
+        tree.add_entry(create_test_entry(2024, 12, 31, "Earliest"));
+
+        assert_eq!(
+            tree.get_earliest_date(),
+            Some(NaiveDate::from_ymd_opt(2024, 12, 31).unwrap())
+        );
+        assert_eq!(
+            tree.get_latest_date(),
+            Some(NaiveDate::from_ymd_opt(2025, 4, 1).unwrap())
+        );
+    }
+}
