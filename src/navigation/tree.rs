@@ -150,6 +150,28 @@ impl EntryTree {
     pub fn get_earliest_date(&self) -> Option<NaiveDate> {
         self.get_all_dates().into_iter().next()
     }
+
+    /// Get all available years
+    pub fn get_years(&self) -> Vec<u32> {
+        self.years.keys().cloned().collect()
+    }
+
+    /// Get all months for a specific year
+    pub fn get_months_for_year(&self, year: u32) -> Vec<u32> {
+        self.years
+            .get(&year)
+            .map(|y| y.months.keys().cloned().collect())
+            .unwrap_or_default()
+    }
+
+    /// Get all days for a specific year/month
+    pub fn get_days_for_mont(&self, year: u32, month: u32) -> Vec<u32> {
+        self.years
+            .get(&year)
+            .and_then(|y| y.months.get(&month))
+            .map(|m| m.entries.keys().cloned().collect())
+            .unwrap_or_default()
+    }
 }
 
 #[cfg(test)]
