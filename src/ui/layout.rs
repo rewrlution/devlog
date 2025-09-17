@@ -47,7 +47,7 @@ fn render_main_content(app: &App, frame: &mut Frame, area: Rect) {
 /// Render the status bar at the bottom
 fn render_status_bar(app: &App, frame: &mut Frame, area: Rect) {
     let status_text = match app.mode {
-        crate::app::AppMode::Navigation => "[q] Quite | Mode: Navigation",
+        crate::app::AppMode::Navigation => "[q] Quit | Mode: Navigation",
         _ => "",
     };
 

@@ -5,14 +5,12 @@ use std::io::{self, stdout};
 use color_eyre::Result;
 use crossterm::{
     ExecutableCommand,
-    event::{self, Event, KeyCode, KeyEventKind},
+    event::{self, Event, KeyEventKind},
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
-use ratatui::{
-    Terminal,
-    prelude::CrosstermBackend,
-    widgets::{Block, Borders, Paragraph},
-};
+use ratatui::{Terminal, prelude::CrosstermBackend};
+
+use crate::app::{self, App};
 
 pub fn run() -> Result<()> {
     // Normal Mode vs Raw Mode
@@ -44,7 +42,8 @@ pub fn run() -> Result<()> {
     let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
 
     // 4. Run the app
-    let result = run_app(&mut terminal);
+    let mut app = App::new();
+    let result = run_app(&mut terminal, &mut app);
 
     // 5. Cleanup
     disable_raw_mode()?;
@@ -53,20 +52,21 @@ pub fn run() -> Result<()> {
     result
 }
 
-fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> Result<()> {
+fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut App) -> Result<()> {
     loop {
         // Draw frame
         terminal.draw(|frame| {
-            let area = frame.area();
-            let paragraph = Paragraph::new("Hello user! Press 'q' to quit")
-                .block(Block::default().title("DevLog").borders(Borders::ALL));
-            frame.render_widget(paragraph, area);
+            layout::render(app, frame);
         })?;
 
         // Wait for keypress
         if let Event::Key(key) = event::read()? {
-            if key.kind == KeyEventKind::Press && key.code == KeyCode::Char('q') {
-                break;
+            if key.kind == KeyEventKind::Press {
+                app.handle_key(key)?;
+
+                if app.should_quit() {
+                    break;
+                }
             }
         }
     }
