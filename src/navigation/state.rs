@@ -206,3 +206,101 @@ impl NavigationState {
             .and_then(|date| self.tree.get_entry(&date))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn create_test_entry(year: i32, month: u32, day: u32) -> Entry {
+        let date = NaiveDate::from_ymd_opt(year, month, day).unwrap();
+        Entry::with_content(date, "Test content".to_string())
+    }
+
+    #[test]
+    fn test_new_navigation_state() {
+        let state = NavigationState::new();
+        assert!(state.tree.is_empty());
+        assert!(state.selected_date.is_none());
+        assert!(state.expanded_year.is_none());
+        assert!(state.expanded_month.is_none());
+    }
+
+    #[test]
+    fn test_year_expansion() {
+        let mut state = NavigationState::new();
+
+        // Initially nothing expanded
+        assert!(!state.is_year_expanded(2025));
+
+        // Expand 2025
+        state.expand_year(2025);
+        assert!(state.is_year_expanded(2025));
+        assert!(!state.is_year_expanded(2024));
+
+        // Expanding different year should collapse previous
+        state.expand_year(2024);
+        assert!(state.is_year_expanded(2024));
+        assert!(!state.is_year_expanded(2025));
+
+        // Toggle should collapse
+        state.toggle_year(2024);
+        assert!(!state.is_year_expanded(2024));
+    }
+
+    #[test]
+    fn test_month_expansion() {
+        let mut state = NavigationState::new();
+
+        // Can't expand month without year
+        state.expand_month(3);
+        assert!(!state.is_month_expanded(3));
+
+        // Expand year first
+        state.expand_year(2025);
+        state.expand_month(3);
+        assert!(state.is_month_expanded(3));
+
+        // Collapsing year should collapse month
+        state.collapse_year();
+        assert!(!state.is_year_expanded(2025));
+        assert!(!state.is_month_expanded(3));
+    }
+
+    #[test]
+    fn test_auto_expansion_on_add() {
+        let mut state = NavigationState::new();
+        let entry = create_test_entry(2025, 3, 15);
+
+        state.add_entry(entry, true);
+
+        // Should auto-expand to show the new entry
+        assert!(state.is_year_expanded(2025));
+        assert!(state.is_month_expanded(3));
+        assert_eq!(
+            state.get_selected_date(),
+            Some(NaiveDate::from_ymd_opt(2025, 3, 15).unwrap())
+        );
+    }
+
+    #[test]
+    fn test_expanded_year_months() {
+        let mut state = NavigationState::new();
+
+        state.add_entry(create_test_entry(2025, 3, 15), false);
+        state.add_entry(create_test_entry(2025, 4, 10), false);
+        state.add_entry(create_test_entry(2024, 12, 31), false);
+
+        // No months when no year expanded
+        assert!(state.get_months_for_expanded_year().is_empty());
+
+        // Expand 2025, months are sorted in descending order
+        state.expand_year(2025);
+        let months = state.get_months_for_expanded_year();
+        assert_eq!(months, vec![4, 3]);
+
+        // Expand 2024
+        state.expand_year(2024);
+        let months = state.get_months_for_expanded_year();
+        assert_eq!(months, vec![12]);
+    }
+}
