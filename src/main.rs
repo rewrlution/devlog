@@ -1,3 +1,4 @@
+mod app;
 mod data;
 mod navigation;
 mod ui;
