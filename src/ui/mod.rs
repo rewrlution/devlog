@@ -1,3 +1,5 @@
+pub mod layout;
+
 use std::io::{self, stdout};
 
 use color_eyre::Result;
