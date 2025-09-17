@@ -1,8 +1,8 @@
-use crate::data::entry::{self, Entry};
+use crate::data::entry::Entry;
 use crate::utils::date::format_entry_date;
 use chrono::{Datelike, NaiveDate};
 use color_eyre::{Result, eyre::Ok};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Handels file system operations for journal entries
 pub struct Storage {
@@ -43,6 +43,11 @@ impl Storage {
         }
         std::fs::write(&path, &entry.content)?;
         Ok(())
+    }
+
+    /// Get the base directory path (for directory scanning)
+    pub fn get_base_dir(&self) -> &Path {
+        &self.base_dir
     }
 
     fn generate_file_path(&self, date: &NaiveDate) -> PathBuf {

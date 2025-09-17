@@ -1,10 +1,12 @@
-use chrono::{Datelike, NaiveDate};
-use color_eyre::{Result, eyre::Ok};
-
 use crate::{
     data::{Entry, Storage},
     navigation::EntryTree,
+    utils::date::parse_entry_date,
 };
+use chrono::{Datelike, NaiveDate};
+use color_eyre::Result;
+use std::fs;
+use walkdir::WalkDir;
 
 /// Navigation state for the application
 #[derive(Debug)]
@@ -29,13 +31,58 @@ impl NavigationState {
     /// Load the navigation state from storage
     pub fn load_from_storage(storage: &Storage) -> Result<Self> {
         let mut state = Self::new();
-        state.refresh_from_Storage(storage);
+        state.refresh_from_storage(storage);
         Ok(state)
     }
 
     /// Refresh the tree from storage when files actually change: create/update/delete
-    pub fn refresh_from_Storage(&mut self, storage: &Storage) -> Result<()> {
-        // TODO: implement directory scanning
+    pub fn refresh_from_storage(&mut self, storage: &Storage) -> Result<()> {
+        // Clear existing tree
+        self.tree = EntryTree::new();
+
+        // Get the base directory path
+        let base_path = storage.get_base_dir();
+        if !base_path.exists() {
+            return Ok(());
+        }
+
+        // Walk through all files recursively
+        for entry in WalkDir::new(base_path)
+            .into_iter()
+            .filter_map(|e| e.ok()) // Skip errors, continue with valid entries
+            .filter(|e| e.file_type().is_file()) // Only process files
+            .filter(|e| {
+                // Only process .md files
+                e.path().extension().map_or(false, |ext| ext == "md")
+            })
+        {
+            let file_path = entry.path();
+
+            // Extract filename (YYYYMMDD)
+            if let Some(file_stem) = file_path.file_stem() {
+                if let Some(date_str) = file_stem.to_str() {
+                    match parse_entry_date(date_str) {
+                        Ok(date) => {
+                            // Load the entry using storage
+                            match storage.load_entry(date) {
+                                Ok(entry) => {
+                                    self.tree.add_entry(entry);
+                                }
+                                Err(e) => {
+                                    // Log warning but continue processing other files
+                                    eprintln!("Warning: Failed to load entry for {}: {}", date, e);
+                                }
+                            }
+                        }
+                        Err(_) => {
+                            // Skip files with invalid date formats
+                            eprintln!("Warning: Failed to process date str: {}", date_str);
+                        }
+                    }
+                }
+            }
+        }
+
         Ok(())
     }
 
@@ -192,7 +239,7 @@ impl NavigationState {
     pub fn get_days_for_expanded_month(&self) -> Vec<u32> {
         match (self.expanded_year, self.expanded_month) {
             (Some(year), Some(month)) => {
-                let mut days = self.tree.get_days_for_mont(year, month);
+                let mut days = self.tree.get_days_for_month(year, month);
                 days.sort_by(|a, b| b.cmp(a));
                 days
             }
@@ -210,6 +257,7 @@ impl NavigationState {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tempfile::TempDir;
 
     fn create_test_entry(year: i32, month: u32, day: u32) -> Entry {
         let date = NaiveDate::from_ymd_opt(year, month, day).unwrap();
@@ -302,5 +350,90 @@ mod tests {
         state.expand_year(2024);
         let months = state.get_months_for_expanded_year();
         assert_eq!(months, vec![12]);
+    }
+
+    #[test]
+    fn test_refresh_from_storage_empty_directory() {
+        let temp_dir = TempDir::new().unwrap();
+        let storage = Storage::new(temp_dir.path().to_path_buf());
+        let mut state = NavigationState::new();
+
+        let result = state.refresh_from_storage(&storage);
+        assert!(result.is_ok());
+        assert!(state.tree.is_empty());
+    }
+
+    #[test]
+    fn test_refresh_from_storage_with_entries() {
+        let temp_dir = TempDir::new().unwrap();
+        let storage = Storage::new(temp_dir.path().to_path_buf());
+
+        // Create some test entries using storage
+        let entries = vec![
+            create_test_entry(2025, 3, 15),
+            create_test_entry(2025, 3, 16),
+            create_test_entry(2025, 4, 1),
+            create_test_entry(2024, 12, 31),
+        ];
+
+        // Save entries to create the directory structure
+        for entry in &entries {
+            storage.save_entry(entry).unwrap();
+        }
+
+        // Now refresh and check that all entries are loaded
+        let mut state = NavigationState::new();
+        let result = state.refresh_from_storage(&storage);
+
+        assert!(result.is_ok());
+        assert!(!state.tree.is_empty());
+
+        // Check that all dates are loaded
+        let loaded_dates = state.tree.get_all_dates();
+        assert_eq!(loaded_dates.len(), 4);
+
+        for entry in &entries {
+            assert!(loaded_dates.contains(&entry.date));
+            assert!(state.tree.get_entry(&entry.date).is_some());
+        }
+    }
+
+    #[test]
+    fn test_refresh_from_storage_ignores_invalid_filenames() {
+        let temp_dir = TempDir::new().unwrap();
+        let storage = Storage::new(temp_dir.path().to_path_buf());
+
+        // Create directory structure
+        let year_dir = temp_dir.path().join("2025").join("03");
+        fs::create_dir_all(&year_dir).unwrap();
+
+        // Create files with invalid date formats (should be ignored)
+        fs::write(year_dir.join("invalid.md"), "Invalid filename").unwrap();
+        fs::write(year_dir.join("2025031.md"), "Too short").unwrap();
+        fs::write(year_dir.join("202503155.md"), "Too long").unwrap();
+        fs::write(year_dir.join("20250229.md"), "Invalid date").unwrap();
+        fs::write(year_dir.join("readme.md"), "Not a date").unwrap();
+
+        // Create valid files
+        fs::write(year_dir.join("20250315.md"), "Valid entry 1").unwrap();
+        fs::write(year_dir.join("20250316.md"), "Valid entry 2").unwrap();
+
+        let mut state = NavigationState::new();
+        let result = state.refresh_from_storage(&storage);
+
+        assert!(result.is_ok());
+
+        // Should only load the valid files, ignore invalid ones
+        let loaded_dates = state.tree.get_all_dates();
+        assert_eq!(loaded_dates.len(), 2);
+
+        let expected_dates = vec![
+            NaiveDate::from_ymd_opt(2025, 3, 15).unwrap(),
+            NaiveDate::from_ymd_opt(2025, 3, 16).unwrap(),
+        ];
+
+        for expected_date in expected_dates {
+            assert!(loaded_dates.contains(&expected_date));
+        }
     }
 }

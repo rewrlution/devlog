@@ -165,7 +165,7 @@ impl EntryTree {
     }
 
     /// Get all days for a specific year/month
-    pub fn get_days_for_mont(&self, year: u32, month: u32) -> Vec<u32> {
+    pub fn get_days_for_month(&self, year: u32, month: u32) -> Vec<u32> {
         self.years
             .get(&year)
             .and_then(|y| y.months.get(&month))

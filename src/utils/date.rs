@@ -3,6 +3,13 @@ use color_eyre::{Result, eyre};
 
 /// Parse YYYYMMDD format into NaiveDate
 pub fn parse_entry_date(date_str: &str) -> Result<NaiveDate> {
+    // Check if the string is exactly 8 characters (YYYYMMDD)
+    if date_str.len() != 8 {
+        return Err(eyre::eyre!(
+            "Invalid date format '{}': must be exactly 8 characters (YYYYMMDD)",
+            date_str
+        ));
+    }
     NaiveDate::parse_from_str(date_str, "%Y%m%d")
         .map_err(|e| eyre::eyre!("Invalid date format '{}': {}", date_str, e))
 }
@@ -36,6 +43,7 @@ mod tests {
         assert!(parse_entry_date("invalid").is_err());
         assert!(parse_entry_date("20251301").is_err()); // invalid month
         assert!(parse_entry_date("20250230").is_err()); // invalid day
+        assert!(parse_entry_date("2025031").is_err()); // too short
     }
 
     #[test]
