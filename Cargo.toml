@@ -1,5 +1,5 @@
 [package]
-name = "dlog"
+name = "devlog"
 version = "0.1.0"
 edition = "2021"
 
@@ -9,3 +9,7 @@ crossterm = "0.28"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 anyhow = "1.0"
 pulldown-cmark = "0.10"
+async-openai = "0.23"
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
