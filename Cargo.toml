@@ -1,6 +1,31 @@
 [package]
 name = "devlog"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 
 [dependencies]
+# Command line argument parsing
+clap = { version = "4.4", features = ["derive"] }
+
+# Date/time handling
+chrono = { version = "0.4", features = ["serde"] }
+
+# YAML frontmatter parsing
+serde = { version = "1.0", features = ["derive"] }
+serde_yaml = "0.9"
+
+# Terminal UI for interactive mode
+crossterm = "0.27"
+ratatui = "0.24"
+
+# File system operations
+walkdir = "2.4"
+
+# Error handling with beautiful colored output
+color-eyre = "0.6"
+
+# Regex for parsing annotations
+regex = "1.10"
+
+# For finding home directory
+dirs = "5.0"
