@@ -4,58 +4,54 @@
 
 - **Create a new entry**
 
-  - `devlog new -m "message"` → inline note
-  - `devlog new` → open \$EDITOR for detailed entry
-  - Support YAML frontmatter (date, tags, people, projects) + Markdown body
+  - `devlog new` → open Vim editor for detailed entry
+  - Support YAML frontmatter (created at, last updated at) + Markdown body
 
 - **Edit an entry**
 
-  - `devlog edit <id>` → open existing entry in \$EDITOR
+  - `devlog edit <id>` → open existing entry in Vim editor
 
 - **List entries**
 
-  - `devlog list [--since <date>] [--until <date>] [--tag <tag>] [--project <project>] [--person <@name>]`
+  - `devlog list` → show last 20 entries with navigation instructions
+  - `devlog list --interactive` → launch TUI with tree navigation
 
 - **Show entry**
 
-  - `devlog show <id>` → display entry details
+  - `devlog show <id>` → display markdown-formatted entry content
 
 ---
 
-## 2. Annotation & Metadata
+## 2. Interactive TUI Mode
 
-- **Inline annotations (Markdown-compatible):**
+- **Two-panel interface** (`devlog list --interactive`):
 
-  - `@alice` → coworker/person
-  - `::search-service` → project
-  - `+motivation` → tag/technology
+  - **Left Panel**: Tree navigation (Year > Month > Date hierarchy)
+  - **Right Panel**: Content display and editing
 
-- **Auto-extraction of metadata** into YAML frontmatter for easy querying.
-- **Configurable dictionary** to autocomplete/validate coworkers, projects, tags.
+- **Navigation controls**:
+
+  - `Tab` → switch between panels
+  - `h`/`j` or `↑`/`↓` → navigate up/down
+  - `k`/`l` or `←`/`→` → expand/collapse tree nodes
+  - `Enter` → toggle nodes or show content
+  - `/` → search for specific dates
+  - `e` → edit content (launches Vim)
 
 ---
 
-## 3. Stats & Insights
+## 3. Insight & Analytics
+
+- **Annotation parsing** (mechanical extraction):
+
+  - `@alice` → people mentions
+  - `::search-service` → project references
+  - `+motivation` → tags/themes
 
 - **Generate summary reports**:
 
-  - Collaboration list (who you work with most)
-  - Top projects mentioned
-  - Sentiment/motivation trend over time
-  - Frequency of blockers/issues
-
-- CLI command: `devlog stats [--since <date>]`
-
----
-
-## 4. Exporting
-
-- **Brag doc export**
-
-  - `devlog export --since last-quarter --format markdown`
-  - Generates bullet points grouped by project, theme, or outcome
-
-- Support export formats: Markdown, CSV (others later: PDF, HTML).
+  - `devlog insight` → extract and display projects, people, and tags
+  - Basic statistics and collaboration insights
 
 ---
 
@@ -92,10 +88,10 @@
 
 ---
 
-✅ **MVP focus** (phase 1):
+✅ **MVP Focus** (Current Phase):
 
-- Entry creation (`new`, `list`, `show`, `edit`)
-- Annotation parsing (`@`, `::`, `+`)
-- Local Markdown storage with YAML frontmatter
-- Basic `stats` (counts, top collaborators/projects)
-- Basic `export` (Markdown brag doc)
+- Basic entry management (`new`, `edit`, `show`, `list`)
+- Interactive TUI with tree navigation
+- Simplified storage (stateless file scanning)
+- Mechanical annotation parsing (`insight` command)
+- Vim-based editing workflow
