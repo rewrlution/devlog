@@ -202,18 +202,45 @@ impl EventHandler {
         Ok(())
     }
 
-    fn edit_current_entry(&self, app_state: &AppState, tree_state: &ListState) -> Result<()> {
+    fn edit_current_entry(&self, app_state: &mut AppState, tree_state: &ListState) -> Result<()> {
         if let Some(selected) = tree_state.selected() {
             if let Some((text, _, is_entry)) = app_state.flat_items.get(selected) {
                 if *is_entry {
                     if let Some(entry_id) = self.extract_entry_id(text) {
-                        // Use editor to edit the entry
-                        use crate::utils::editor;
+                        // Temporarily exit raw mode and restore terminal
+                        use crossterm::{
+                            execute,
+                            terminal::{disable_raw_mode, enable_raw_mode, LeaveAlternateScreen, EnterAlternateScreen},
+                        };
+                        use std::io;
                         
-                        let mut entry = self.storage.load_entry(&entry_id)?;
-                        let new_content = editor::launch_editor(&entry.content)?;
-                        entry.update_content(new_content);
-                        self.storage.save_entry(&entry)?;
+                        // Save current terminal state and exit TUI mode
+                        disable_raw_mode()?;
+                        execute!(io::stdout(), LeaveAlternateScreen)?;
+                        
+                        // Launch editor
+                        let result = {
+                            use crate::utils::editor;
+                            let mut entry = self.storage.load_entry(&entry_id)?;
+                            let new_content = editor::launch_editor(&entry.content);
+                            match new_content {
+                                Ok(content) => {
+                                    entry.update_content(content);
+                                    self.storage.save_entry(&entry)
+                                }
+                                Err(e) => Err(e)
+                            }
+                        };
+                        
+                        // Restore TUI mode
+                        enable_raw_mode()?;
+                        execute!(io::stdout(), EnterAlternateScreen)?;
+                        
+                        // Handle editor result
+                        result?;
+                        
+                        // Refresh the content in the TUI
+                        self.update_content_panel(app_state, tree_state)?;
                     }
                 }
             }
