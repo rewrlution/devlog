@@ -3,7 +3,7 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Wrap},
+    widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, Wrap},
     Frame,
 };
 
@@ -11,13 +11,19 @@ pub struct UIRenderer;
 
 impl UIRenderer {
     pub fn render(app_state: &AppState, tree_state: &mut ListState, f: &mut Frame) {
-        let chunks = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
+        let main_chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Min(3), Constraint::Length(3)])
             .split(f.size());
 
-        Self::render_tree_panel(app_state, tree_state, f, chunks[0]);
-        Self::render_content_panel(app_state, f, chunks[1]);
+        let content_chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
+            .split(main_chunks[0]);
+
+        Self::render_tree_panel(app_state, tree_state, f, content_chunks[0]);
+        Self::render_content_panel(app_state, f, content_chunks[1]);
+        Self::render_help_footer(app_state, f, main_chunks[1]);
     }
 
     fn render_tree_panel(app_state: &AppState, tree_state: &mut ListState, f: &mut Frame, area: Rect) {
@@ -60,11 +66,33 @@ impl UIRenderer {
     }
 
     fn render_content_panel(app_state: &AppState, f: &mut Frame, area: Rect) {
-        let paragraph = Paragraph::new(app_state.selected_entry_content.as_str())
+        let content_lines: Vec<Line> = app_state.selected_entry_content
+            .lines()
+            .map(|line| Line::from(line.to_string()))
+            .collect();
+
+        // Calculate scrolling
+        let content_height = area.height.saturating_sub(2) as usize; // Account for borders
+        let total_lines = content_lines.len();
+        let scroll_offset = app_state.content_scroll as usize;
+        let visible_lines: Vec<Line> = content_lines
+            .into_iter()
+            .skip(scroll_offset)
+            .take(content_height)
+            .collect();
+
+        let paragraph = Paragraph::new(visible_lines)
             .block(
                 Block::default()
                     .borders(Borders::ALL)
-                    .title("Content")
+                    .title(if total_lines > content_height {
+                        format!("Content ({}/{} lines)", 
+                            (scroll_offset + content_height).min(total_lines),
+                            total_lines
+                        )
+                    } else {
+                        "Content".to_string()
+                    })
                     .border_style(if app_state.current_panel == Panel::Content {
                         Style::default().fg(Color::Cyan)
                     } else {
@@ -74,5 +102,45 @@ impl UIRenderer {
             .wrap(Wrap { trim: true });
 
         f.render_widget(paragraph, area);
+
+        // Render scrollbar if content is longer than visible area
+        if total_lines > content_height {
+            let scrollbar_area = Rect {
+                x: area.x + area.width.saturating_sub(2),
+                y: area.y + 1,
+                width: 1,
+                height: area.height.saturating_sub(2),
+            };
+
+            let mut scrollbar_state = ScrollbarState::default()
+                .content_length(total_lines)
+                .position(scroll_offset);
+
+            let scrollbar = Scrollbar::default()
+                .orientation(ScrollbarOrientation::VerticalRight)
+                .begin_symbol(Some("▲"))
+                .end_symbol(Some("▼"));
+
+            f.render_stateful_widget(scrollbar, scrollbar_area, &mut scrollbar_state);
+        }
+    }
+
+    fn render_help_footer(app_state: &AppState, f: &mut Frame, area: Rect) {
+        let help_text = match app_state.current_panel {
+            Panel::Tree => "Navigation: ↑↓/jk=move, →/l/Enter=expand, ←/h=collapse, Tab=switch panel, q=quit",
+            Panel::Content => "Navigation: ↑↓/jk=scroll, Tab=switch panel, e=edit entry, q=quit",
+        };
+
+        let help_paragraph = Paragraph::new(help_text)
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title("Help")
+                    .border_style(Style::default().fg(Color::Gray)),
+            )
+            .style(Style::default().fg(Color::Gray))
+            .wrap(Wrap { trim: true });
+
+        f.render_widget(help_paragraph, area);
     }
 }

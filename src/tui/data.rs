@@ -40,6 +40,7 @@ pub struct AppState {
     pub flat_items: Vec<(String, usize, bool)>, // (display_text, indent_level, is_entry)
     pub current_panel: Panel,
     pub selected_entry_content: String,
+    pub content_scroll: u16,  // Current scroll position in content
     pub should_quit: bool,
 }
 
@@ -50,7 +51,22 @@ impl AppState {
             flat_items: Vec::new(),
             current_panel: Panel::Tree,
             selected_entry_content: String::new(),
+            content_scroll: 0,
             should_quit: false,
         }
+    }
+
+    pub fn scroll_content_up(&mut self) {
+        self.content_scroll = self.content_scroll.saturating_sub(1);
+    }
+
+    pub fn scroll_content_down(&mut self, max_scroll: u16) {
+        if self.content_scroll < max_scroll {
+            self.content_scroll += 1;
+        }
+    }
+
+    pub fn reset_content_scroll(&mut self) {
+        self.content_scroll = 0;
     }
 }

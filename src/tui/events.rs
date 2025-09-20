@@ -29,9 +29,19 @@ impl EventHandler {
                     Panel::Content => Panel::Tree,
                 };
             }
+            KeyCode::Char('e') => {
+                if app_state.current_panel == Panel::Content {
+                    self.edit_current_entry(app_state, tree_state)?;
+                }
+            }
             _ => {
-                if app_state.current_panel == Panel::Tree {
-                    self.handle_tree_navigation(key_code, app_state, tree_state)?;
+                match app_state.current_panel {
+                    Panel::Tree => {
+                        self.handle_tree_navigation(key_code, app_state, tree_state)?;
+                    }
+                    Panel::Content => {
+                        self.handle_content_navigation(key_code, app_state)?;
+                    }
                 }
             }
         }
@@ -143,14 +153,68 @@ impl EventHandler {
                         match self.storage.load_entry(&entry_id) {
                             Ok(entry) => {
                                 app_state.selected_entry_content = entry.content;
+                                app_state.reset_content_scroll(); // Reset scroll when loading new content
                             }
                             Err(_) => {
                                 app_state.selected_entry_content = "Error loading entry".to_string();
+                                app_state.reset_content_scroll();
                             }
                         }
                     }
                 } else {
                     app_state.selected_entry_content = "Select an entry to view its content".to_string();
+                    app_state.reset_content_scroll();
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn handle_content_navigation(&self, key_code: KeyCode, app_state: &mut AppState) -> Result<()> {
+        let content_lines = app_state.selected_entry_content.lines().count();
+        let max_scroll = content_lines.saturating_sub(1) as u16;
+
+        match key_code {
+            KeyCode::Up | KeyCode::Char('k') => {
+                app_state.scroll_content_up();
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                app_state.scroll_content_down(max_scroll);
+            }
+            KeyCode::Home => {
+                app_state.reset_content_scroll();
+            }
+            KeyCode::End => {
+                app_state.content_scroll = max_scroll;
+            }
+            KeyCode::PageUp => {
+                for _ in 0..10 {
+                    app_state.scroll_content_up();
+                }
+            }
+            KeyCode::PageDown => {
+                for _ in 0..10 {
+                    app_state.scroll_content_down(max_scroll);
+                }
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
+    fn edit_current_entry(&self, app_state: &AppState, tree_state: &ListState) -> Result<()> {
+        if let Some(selected) = tree_state.selected() {
+            if let Some((text, _, is_entry)) = app_state.flat_items.get(selected) {
+                if *is_entry {
+                    if let Some(entry_id) = self.extract_entry_id(text) {
+                        // Use editor to edit the entry
+                        use crate::utils::editor;
+                        
+                        let mut entry = self.storage.load_entry(&entry_id)?;
+                        let new_content = editor::launch_editor(&entry.content)?;
+                        entry.update_content(new_content);
+                        self.storage.save_entry(&entry)?;
+                    }
                 }
             }
         }
