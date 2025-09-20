@@ -50,11 +50,10 @@ impl TreeBuilder {
 
                 let day_nodes: Vec<TreeNode> = days
                     .into_iter()
-                    .map(|day| TreeNode::new_entry(day.clone(), format_entry_display(&day)))
+                    .map(|day| TreeNode::new_entry(format_entry_display(&day)))
                     .collect();
 
                 month_nodes.push(TreeNode {
-                    id: format!("{}{}", year, month),
                     display_name: format!("{}-{}", year, month),
                     children: day_nodes,
                     is_expanded: false,
@@ -63,7 +62,6 @@ impl TreeBuilder {
             }
 
             tree_nodes.push(TreeNode {
-                id: year.clone(),
                 display_name: year.clone(),
                 children: month_nodes,
                 is_expanded: false,
@@ -72,10 +70,6 @@ impl TreeBuilder {
         }
 
         Ok(tree_nodes)
-    }
-
-    pub fn get_storage(&self) -> &Storage {
-        &self.storage
     }
 }
 

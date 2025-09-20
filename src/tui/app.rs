@@ -44,6 +44,12 @@ impl App {
 
     pub fn run<B: ratatui::backend::Backend>(&mut self, terminal: &mut Terminal<B>) -> Result<()> {
         loop {
+            // Clear terminal if a redraw is needed (e.g., after editor)
+            if self.app_state.needs_redraw {
+                terminal.clear()?;
+                self.app_state.needs_redraw = false;
+            }
+            
             terminal.draw(|f| UIRenderer::render(&self.app_state, &mut self.tree_state, f))?;
 
             if let Event::Key(key) = event::read()? {

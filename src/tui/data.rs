@@ -1,6 +1,5 @@
 #[derive(Debug, Clone)]
 pub struct TreeNode {
-    pub id: String,
     pub display_name: String,
     pub children: Vec<TreeNode>,
     pub is_expanded: bool,
@@ -8,20 +7,9 @@ pub struct TreeNode {
 }
 
 impl TreeNode {
-    pub fn new_folder(id: String, display_name: String) -> Self {
-        Self {
-            id,
-            display_name,
-            children: Vec::new(),
-            is_expanded: false,
-            is_entry: false,
-        }
-    }
-
-    pub fn new_entry(id: String, display_name: String) -> Self {
-        Self {
-            id,
-            display_name,
+    pub fn new_entry(name: String) -> Self {
+        TreeNode {
+            display_name: name,
             children: Vec::new(),
             is_expanded: false,
             is_entry: true,
@@ -42,6 +30,7 @@ pub struct AppState {
     pub selected_entry_content: String,
     pub content_scroll: u16,  // Current scroll position in content
     pub should_quit: bool,
+    pub needs_redraw: bool,   // Flag to force full redraw after editor
 }
 
 impl AppState {
@@ -53,6 +42,7 @@ impl AppState {
             selected_entry_content: String::new(),
             content_scroll: 0,
             should_quit: false,
+            needs_redraw: false,
         }
     }
 

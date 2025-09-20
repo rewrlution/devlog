@@ -210,7 +210,7 @@ impl EventHandler {
                         // Temporarily exit raw mode and restore terminal
                         use crossterm::{
                             execute,
-                            terminal::{disable_raw_mode, enable_raw_mode, LeaveAlternateScreen, EnterAlternateScreen},
+                            terminal::{disable_raw_mode, enable_raw_mode, LeaveAlternateScreen, EnterAlternateScreen, Clear, ClearType},
                         };
                         use std::io;
                         
@@ -232,15 +232,23 @@ impl EventHandler {
                             }
                         };
                         
-                        // Restore TUI mode
+                        // Restore TUI mode with proper screen clearing
                         enable_raw_mode()?;
-                        execute!(io::stdout(), EnterAlternateScreen)?;
+                        execute!(
+                            io::stdout(), 
+                            EnterAlternateScreen,
+                            Clear(ClearType::All),
+                            crossterm::cursor::MoveTo(0, 0)
+                        )?;
                         
                         // Handle editor result
                         result?;
                         
                         // Refresh the content in the TUI
                         self.update_content_panel(app_state, tree_state)?;
+                        
+                        // Set flag to force full redraw on next render
+                        app_state.needs_redraw = true;
                     }
                 }
             }
