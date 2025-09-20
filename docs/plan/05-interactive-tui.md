@@ -4,6 +4,30 @@
 
 Implement the interactive terminal interface with tree navigation for `devlog list --interactive`. This step is broken down into manageable chunks: data structures, UI components, event handling, and application logic.
 
+The TUI will display entries in a tree format using text-based art:
+
+```
+┌─ Entries ──────────────────────────────────────┐
+│[+] 2024                                        │
+│[+] 2023                                        │
+│[-] 2022                                        │
+│ ├─ [+] 2022-12                                 │
+│ ├─ [-] 2022-11                                 │
+│ │   ├─ 20221115.md - Added logging feature     │
+│ │   ├─ 20221110.md - Fixed database bug        │
+│ │   └─ 20221105.md - Initial project setup     │
+│ └─ [+] 2022-10                                 │
+└────────────────────────────────────────────────┘
+```
+
+Key visual elements:
+
+- `[+]` indicates a collapsed folder/year/month
+- `[-]` indicates an expanded folder/year/month
+- `├─` for middle items in a group
+- `└─` for the last item in a group
+- `│` for vertical connection lines
+
 ## Part A: Core Data Structures (`src/tui/data.rs`)
 
 First, let's define the core data structures for our TUI:
@@ -167,26 +191,52 @@ fn format_entry_display(entry_id: &str) -> String {
 
 pub fn flatten_tree(nodes: &[TreeNode]) -> Vec<(String, usize, bool)> {
     let mut flat_items = Vec::new();
-    for node in nodes {
-        flatten_node(node, 0, &mut flat_items);
+    for (i, node) in nodes.iter().enumerate() {
+        let is_last = i == nodes.len() - 1;
+        let prefix = String::new();
+        flatten_node_with_tree_art(node, &prefix, is_last, &mut flat_items);
     }
     flat_items
 }
 
-fn flatten_node(node: &TreeNode, indent: usize, flat_items: &mut Vec<(String, usize, bool)>) {
-    let display_text = if node.is_entry {
-        node.display_name.clone()
+fn flatten_node_with_tree_art(
+    node: &TreeNode,
+    prefix: &str,
+    is_last: bool,
+    flat_items: &mut Vec<(String, usize, bool)>
+) {
+    // Build the tree art prefix for this node
+    let connector = if is_last { "└─ " } else { "├─ " };
+    let expansion_indicator = if node.is_entry {
+        ""
     } else if node.is_expanded {
-        format!("📂 {}", node.display_name)
+        "[-] "
     } else {
-        format!("📁 {}", node.display_name)
+        "[+] "
     };
 
-    flat_items.push((display_text, indent, node.is_entry));
+    let display_text = format!("{}{}{}{}",
+        prefix,
+        connector,
+        expansion_indicator,
+        node.display_name
+    );
 
-    if node.is_expanded {
-        for child in &node.children {
-            flatten_node(child, indent + 1, flat_items);
+    // Calculate indent level by counting tree characters (for styling)
+    let indent_level = prefix.chars().filter(|&c| c == '|' || c == ' ').count() / 4;
+    flat_items.push((display_text, indent_level, node.is_entry));
+
+    // Add children if expanded
+    if node.is_expanded && !node.children.is_empty() {
+        let child_prefix = if is_last {
+            format!("{}    ", prefix)  // 4 spaces for last node
+        } else {
+            format!("{}|   ", prefix)  // pipe + 3 spaces for continuing branch
+        };
+
+        for (i, child) in node.children.iter().enumerate() {
+            let child_is_last = i == node.children.len() - 1;
+            flatten_node_with_tree_art(child, &child_prefix, child_is_last, flat_items);
         }
     }
 }
@@ -223,8 +273,8 @@ impl UIRenderer {
         let items: Vec<ListItem> = app_state
             .flat_items
             .iter()
-            .map(|(text, indent, is_entry)| {
-                let indent_str = "  ".repeat(*indent);
+            .map(|(text, _indent, is_entry)| {
+                // Tree art is now included in the text, no need for additional indentation
                 let style = if *is_entry {
                     Style::default().fg(Color::White)
                 } else {
@@ -232,7 +282,7 @@ impl UIRenderer {
                 };
 
                 ListItem::new(Line::from(Span::styled(
-                    format!("{}{}", indent_str, text),
+                    text.clone(),
                     style,
                 )))
             })
