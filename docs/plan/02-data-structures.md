@@ -15,7 +15,7 @@ use color_eyre::Result;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Entry {
-    pub id: String,           // YYYY-MM-DD format
+    pub id: String,           // YYYYMMDD format
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub content: String,      // Markdown content
@@ -24,7 +24,7 @@ pub struct Entry {
 impl Entry {
     pub fn new(content: String) -> Self {
         let now = Utc::now();
-        let id = now.format("%Y-%m-%d").to_string();
+        let id = now.format("%Y%m%d").to_string();
 
         Self {
             id,
@@ -43,7 +43,7 @@ impl Entry {
 
 ## File Format Structure
 
-Each entry will be stored as `~/.devlog/entries/YYYY-MM-DD.md`:
+Each entry will be stored as `~/.devlog/entries/YYYYMMDD.md`:
 
 ```markdown
 ---

@@ -177,7 +177,7 @@ pub struct NewArgs {
 
 pub fn execute(args: Option<NewArgs>) -> Result<()> {
     let storage = Storage::new()?;
-    let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
+    let today = chrono::Utc::now().format("%Y%m%d").to_string();
 
     // Check if entry already exists for today
     if let Ok(_) = storage.load_entry(&today) {
@@ -553,7 +553,7 @@ cargo run new
 cargo run list
 cargo run list --interactive
 cargo run insight
-cargo run show 2024-09-20
+cargo run show 20240920
 
 # Test configuration
 cargo run config --editor nano

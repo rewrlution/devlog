@@ -74,7 +74,7 @@ pub fn execute() -> Result<()> {
     println!("Creating new entry...");
 
     // Get current date as entry ID
-    let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
+    let today = chrono::Utc::now().format("%Y%m%d").to_string();
 
     // Check if entry already exists for today
     let storage = Storage::new()?;
@@ -280,10 +280,10 @@ cargo run new
 cargo run list
 
 # Show an entry
-cargo run show 2024-09-20
+cargo run show 20240920
 
 # Edit an entry
-cargo run edit 2024-09-20
+cargo run edit 20240920
 ```
 
 ## Next Steps

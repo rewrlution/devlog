@@ -86,3 +86,16 @@ src/
 ## Next Steps
 
 After completing this setup, move to Step 2: Data Structures and Storage.
+
+## Implementation Order
+
+For this project, follow this recommended order:
+
+1. **Step 1**: Project Setup (this step)
+2. **Step 2**: Data Structures and Storage
+3. **Step 3**: Basic CLI Commands
+4. **Step 5**: Interactive TUI ⭐ (implement before annotation parsing)
+5. **Step 4**: Annotation Parsing and Insights (can be implemented later)
+6. **Step 6**: Configuration and Polish
+
+**Why TUI before Annotations?** The TUI provides immediate visual feedback and is more engaging for users, while annotation parsing is a nice-to-have feature that can be added once the core functionality works.

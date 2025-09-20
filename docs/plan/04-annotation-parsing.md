@@ -322,7 +322,7 @@ cargo run new
 cargo run insight
 
 # View entry with annotations
-cargo run show 2024-09-20
+cargo run show 20240920
 ```
 
 ## Example Output
