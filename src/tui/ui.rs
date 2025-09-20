@@ -3,7 +3,7 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, Wrap},
+    widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Wrap},
     Frame,
 };
 
@@ -102,27 +102,6 @@ impl UIRenderer {
             .wrap(Wrap { trim: true });
 
         f.render_widget(paragraph, area);
-
-        // Render scrollbar if content is longer than visible area
-        if total_lines > content_height {
-            let scrollbar_area = Rect {
-                x: area.x + area.width.saturating_sub(2),
-                y: area.y + 1,
-                width: 1,
-                height: area.height.saturating_sub(2),
-            };
-
-            let mut scrollbar_state = ScrollbarState::default()
-                .content_length(total_lines)
-                .position(scroll_offset);
-
-            let scrollbar = Scrollbar::default()
-                .orientation(ScrollbarOrientation::VerticalRight)
-                .begin_symbol(Some("▲"))
-                .end_symbol(Some("▼"));
-
-            f.render_stateful_widget(scrollbar, scrollbar_area, &mut scrollbar_state);
-        }
     }
 
     fn render_help_footer(app_state: &AppState, f: &mut Frame, area: Rect) {
