@@ -18,6 +18,9 @@ serde_yaml = "0.9"
 crossterm = "0.27"
 ratatui = "0.24"
 
+# Unicode width calculation for proper text display
+unicode-width = "0.1"
+
 # File system operations
 walkdir = "2.4"
 
