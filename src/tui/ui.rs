@@ -71,7 +71,7 @@ impl UIRenderer {
             .map(|line| Line::from(line.to_string()))
             .collect();
 
-        // Calculate scrolling
+        // Calculate scrolling - account for borders and horizontal padding
         let content_height = area.height.saturating_sub(2) as usize; // Account for borders
         let total_lines = content_lines.len();
         let scroll_offset = app_state.content_scroll as usize;
@@ -85,6 +85,7 @@ impl UIRenderer {
             .block(
                 Block::default()
                     .borders(Borders::ALL)
+                    .padding(ratatui::widgets::Padding::horizontal(1)) // Add horizontal padding
                     .title(if total_lines > content_height {
                         format!("Content ({}/{} lines)", 
                             (scroll_offset + content_height).min(total_lines),
