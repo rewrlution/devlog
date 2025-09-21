@@ -2,6 +2,7 @@ use clap::{Parser, Subcommand};
 
 mod commands;
 mod models;
+mod storage;
 
 #[derive(Parser)]
 #[command(name = env!("CARGO_PKG_NAME"))]
