@@ -1,5 +1,7 @@
 use clap::{Parser, Subcommand};
 
+mod commands;
+
 #[derive(Parser)]
 #[command(name = env!("CARGO_PKG_NAME"))]
 #[command(about = env!("CARGO_PKG_DESCRIPTION"))]
@@ -14,44 +16,32 @@ enum Commands {
     /// Create a new entry
     New,
     /// Edit an existing entry
-    Edit {id: String},
+    Edit {
+        /// Entry ID to edit (format: YYYYMMDD)
+        #[arg(long, value_name = "YYYYMMDD")]
+        id: String,
+    },
     /// Show an entry
-    Show {id: String},
+    Show {
+        /// Entry ID to display (format: YYYYMMDD)
+        #[arg(long, value_name = "YYYYMMDD")]
+        id: String,
+    },
     /// List entries
     List {
         /// Launch interactive TUI mode
         #[arg(short, long)]
         interactive: bool,
-    }
+    },
 }
 
 fn main() {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::New => handle_new(),
-        Commands::Edit { id } => handle_edit(id),
-        Commands::Show { id } => hanlde_show(id),   
-        Commands::List { interactive } => handle_list(interactive),
-    }
-}
-
-fn handle_new() {
-    println!("Creating new entry...");
-}
-
-fn handle_edit(id: String) {
-    println!("Editing entry {id}");
-}
-
-fn hanlde_show(id: String) {
-    println!("Showing entry {id}");
-}
-
-fn handle_list(interactive: bool) {
-    if interactive {
-        println!("Listing in interactive mode");
-    } else {
-        println!("List latest 10 entries");
+        Commands::New => commands::new::execute(),
+        Commands::Edit { id } => commands::edit::execute(id),
+        Commands::Show { id } => commands::show::execute(id),
+        Commands::List { interactive } => commands::list::execute(interactive),
     }
 }
