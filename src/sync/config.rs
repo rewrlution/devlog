@@ -5,15 +5,30 @@ use color_eyre::{Result, eyre::eyre};
 /// Configuration for sync feature
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct SyncConfig {
-    pub provider: String, // MVP: Just store as string, future: enum
-    pub sync_dir: Option<String>, // MVP: Local directory for testing
+    pub provider: String, // "local" or "azure" 
+    pub local: Option<LocalConfig>,
+    pub azure: Option<AzureConfig>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct LocalConfig {
+    pub sync_dir: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct AzureConfig {
+    pub connection_string: String,
+    pub container_name: String,
 }
 
 impl Default for SyncConfig {
     fn default() -> Self {
         Self {
             provider: "local".to_string(),
-            sync_dir: Some("~/.devlog/sync".to_string()),
+            local: Some(LocalConfig {
+                sync_dir: "~/.devlog/sync".to_string(),
+            }),
+            azure: None,
         }
     }
 }
@@ -55,6 +70,11 @@ impl ConfigManager {
     
     /// Create a default config file
     pub fn create_default() -> Result<()> {
+        Self::create_config_for_provider("local")
+    }
+    
+    /// Create config for specific provider
+    pub fn create_config_for_provider(provider: &str) -> Result<()> {
         let config_dir = if let Some(home_dir) = dirs::home_dir() {
             home_dir.join(".devlog")
         } else {
@@ -63,12 +83,31 @@ impl ConfigManager {
         
         std::fs::create_dir_all(&config_dir)?;
         
-        let config = SyncConfig::default();
+        let config = match provider {
+            "local" => SyncConfig::default(),
+            "azure" => SyncConfig {
+                provider: "azure".to_string(),
+                local: None,
+                azure: Some(AzureConfig {
+                    connection_string: "REPLACE_WITH_YOUR_AZURE_CONNECTION_STRING".to_string(),
+                    container_name: "devlog-entries".to_string(),
+                }),
+            },
+            _ => return Err(eyre!("Unknown provider: {}", provider)),
+        };
+        
         let content = toml::to_string_pretty(&config)?;
         
         let config_path = config_dir.join("config.toml");
         std::fs::write(&config_path, content)?;
-        println!("Created default config at {}", config_path.display());
+        println!("Created {} config at {}", provider, config_path.display());
+        
+        if provider == "azure" {
+            println!("\n📝 Next steps:");
+            println!("1. Replace REPLACE_WITH_YOUR_AZURE_CONNECTION_STRING with your actual connection string");
+            println!("2. Update container_name if needed (default: devlog-entries)");
+            println!("3. Run 'devlog sync status' to verify configuration");
+        }
         
         Ok(())
     }

@@ -5,6 +5,7 @@ use async_trait::async_trait;
 
 pub mod config;
 pub mod engine;
+pub mod providers;
 
 /// Represents a file in cloud storage
 #[derive(Debug, Clone)]
