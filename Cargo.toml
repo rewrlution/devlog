@@ -32,3 +32,8 @@ regex = "1.10"
 
 # For finding home directory
 dirs = "5.0"
+
+# Sync feature dependencies
+tokio = { version = "1.0", features = ["fs", "rt-multi-thread"] }
+toml = "0.8"
+async-trait = "0.1"

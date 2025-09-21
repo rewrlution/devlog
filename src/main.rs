@@ -5,6 +5,7 @@ mod commands;
 mod storage;
 mod utils;
 mod tui;
+mod sync;
 
 #[derive(Parser)]
 #[command(name = "devlog")]
@@ -28,12 +29,20 @@ enum Commands {
         #[arg(long)]
         interactive: bool,
     },
+    /// Sync entries with cloud storage
+    Sync {
+        #[command(subcommand)]
+        command: commands::sync::SyncCommands,
+    },
 }
 
 fn main() -> Result<()> {
     color_eyre::install()?;
     
     let cli = Cli::parse();
+
+    // Create tokio runtime for async operations
+    let rt = tokio::runtime::Runtime::new()?;
 
     match cli.command {
         Commands::New => commands::new::execute(),
@@ -45,6 +54,9 @@ fn main() -> Result<()> {
             } else {
                 commands::list::execute()
             }
+        }
+        Commands::Sync { command } => {
+            rt.block_on(commands::sync::handle_sync_command(command))
         }
     }
 }
