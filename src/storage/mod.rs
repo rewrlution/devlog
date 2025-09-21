@@ -1,8 +1,8 @@
 pub mod entry;
 
 use crate::storage::entry::Entry;
-use color_eyre::{eyre::Context, eyre::ContextCompat, Result};
 use chrono::Utc;
+use color_eyre::{eyre::Context, eyre::ContextCompat, Result};
 use std::fs;
 use std::path::PathBuf;
 use walkdir::WalkDir;
@@ -13,13 +13,11 @@ pub struct Storage {
 
 impl Storage {
     pub fn new() -> Result<Self> {
-        let home = dirs::home_dir()
-            .wrap_err("Could not find home directory")?;
+        let home = dirs::home_dir().wrap_err("Could not find home directory")?;
         let base_path = home.join(".devlog").join("entries");
 
         // Create directory if it doesn't exist
-        fs::create_dir_all(&base_path)
-            .wrap_err("Failed to create devlog directory")?;
+        fs::create_dir_all(&base_path).wrap_err("Failed to create devlog directory")?;
 
         Ok(Self { base_path })
     }
@@ -27,15 +25,13 @@ impl Storage {
     pub fn save_entry(&self, entry: &Entry) -> Result<()> {
         let file_path = self.base_path.join(format!("{}.md", entry.id));
         let content = self.serialize_entry(entry)?;
-        fs::write(file_path, content)
-            .wrap_err("Failed to write entry file")?;
+        fs::write(file_path, content).wrap_err("Failed to write entry file")?;
         Ok(())
     }
 
     pub fn load_entry(&self, id: &str) -> Result<Entry> {
         let file_path = self.base_path.join(format!("{}.md", id));
-        let content = fs::read_to_string(file_path)
-            .wrap_err("Failed to read entry file")?;
+        let content = fs::read_to_string(file_path).wrap_err("Failed to read entry file")?;
         self.deserialize_entry(id, &content)
     }
 
@@ -45,8 +41,7 @@ impl Storage {
         for entry in WalkDir::new(&self.base_path)
             .into_iter()
             .filter_map(|e| e.ok())
-            .filter(|e| e.path().extension()
-                .map_or(false, |ext| ext == "md"))
+            .filter(|e| e.path().extension().is_some_and(|ext| ext == "md"))
         {
             if let Some(stem) = entry.path().file_stem() {
                 if let Some(id) = stem.to_str() {

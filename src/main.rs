@@ -3,9 +3,9 @@ use color_eyre::Result;
 
 mod commands;
 mod storage;
-mod utils;
-mod tui;
 mod sync;
+mod tui;
+mod utils;
 
 #[derive(Parser)]
 #[command(name = "devlog")]
@@ -38,7 +38,7 @@ enum Commands {
 
 fn main() -> Result<()> {
     color_eyre::install()?;
-    
+
     let cli = Cli::parse();
 
     // Create tokio runtime for async operations
@@ -55,8 +55,6 @@ fn main() -> Result<()> {
                 commands::list::execute()
             }
         }
-        Commands::Sync { command } => {
-            rt.block_on(commands::sync::handle_sync_command(command))
-        }
+        Commands::Sync { command } => rt.block_on(commands::sync::handle_sync_command(command)),
     }
 }

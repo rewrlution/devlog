@@ -34,16 +34,14 @@ impl EventHandler {
                     self.edit_current_entry(app_state, tree_state)?;
                 }
             }
-            _ => {
-                match app_state.current_panel {
-                    Panel::Tree => {
-                        self.handle_tree_navigation(key_code, app_state, tree_state)?;
-                    }
-                    Panel::Content => {
-                        self.handle_content_navigation(key_code, app_state)?;
-                    }
+            _ => match app_state.current_panel {
+                Panel::Tree => {
+                    self.handle_tree_navigation(key_code, app_state, tree_state)?;
                 }
-            }
+                Panel::Content => {
+                    self.handle_content_navigation(key_code, app_state)?;
+                }
+            },
         }
         Ok(())
     }
@@ -87,7 +85,11 @@ impl EventHandler {
                 if !is_entry {
                     // It's a folder, toggle expansion
                     let mut current_index = 0;
-                    self.toggle_node_recursive(&mut app_state.tree_nodes, selected, &mut current_index)?;
+                    Self::toggle_node_recursive(
+                        &mut app_state.tree_nodes,
+                        selected,
+                        &mut current_index,
+                    )?;
                     app_state.flat_items = flatten_tree(&app_state.tree_nodes);
                 }
             }
@@ -96,7 +98,6 @@ impl EventHandler {
     }
 
     fn toggle_node_recursive(
-        &self,
         nodes: &mut [TreeNode],
         target_index: usize,
         current_index: &mut usize,
@@ -108,7 +109,9 @@ impl EventHandler {
             }
             *current_index += 1;
 
-            if node.is_expanded && self.toggle_node_recursive(&mut node.children, target_index, current_index)? {
+            if node.is_expanded
+                && Self::toggle_node_recursive(&mut node.children, target_index, current_index)?
+            {
                 return Ok(true);
             }
         }
@@ -118,14 +121,13 @@ impl EventHandler {
     fn collapse_node(&self, app_state: &mut AppState, tree_state: &mut ListState) -> Result<()> {
         if let Some(selected) = tree_state.selected() {
             let mut current_index = 0;
-            self.collapse_node_recursive(&mut app_state.tree_nodes, selected, &mut current_index)?;
+            Self::collapse_node_recursive(&mut app_state.tree_nodes, selected, &mut current_index)?;
             app_state.flat_items = flatten_tree(&app_state.tree_nodes);
         }
         Ok(())
     }
 
     fn collapse_node_recursive(
-        &self,
         nodes: &mut [TreeNode],
         target_index: usize,
         current_index: &mut usize,
@@ -137,7 +139,9 @@ impl EventHandler {
             }
             *current_index += 1;
 
-            if node.is_expanded && self.collapse_node_recursive(&mut node.children, target_index, current_index)? {
+            if node.is_expanded
+                && Self::collapse_node_recursive(&mut node.children, target_index, current_index)?
+            {
                 return Ok(true);
             }
         }
@@ -156,13 +160,15 @@ impl EventHandler {
                                 app_state.reset_content_scroll(); // Reset scroll when loading new content
                             }
                             Err(_) => {
-                                app_state.selected_entry_content = "Error loading entry".to_string();
+                                app_state.selected_entry_content =
+                                    "Error loading entry".to_string();
                                 app_state.reset_content_scroll();
                             }
                         }
                     }
                 } else {
-                    app_state.selected_entry_content = "Select an entry to view its content".to_string();
+                    app_state.selected_entry_content =
+                        "Select an entry to view its content".to_string();
                     app_state.reset_content_scroll();
                 }
             }
@@ -210,14 +216,17 @@ impl EventHandler {
                         // Temporarily exit raw mode and restore terminal
                         use crossterm::{
                             execute,
-                            terminal::{disable_raw_mode, enable_raw_mode, LeaveAlternateScreen, EnterAlternateScreen, Clear, ClearType},
+                            terminal::{
+                                disable_raw_mode, enable_raw_mode, Clear, ClearType,
+                                EnterAlternateScreen, LeaveAlternateScreen,
+                            },
                         };
                         use std::io;
-                        
+
                         // Save current terminal state and exit TUI mode
                         disable_raw_mode()?;
                         execute!(io::stdout(), LeaveAlternateScreen)?;
-                        
+
                         // Launch editor
                         let result = {
                             use crate::utils::editor;
@@ -228,25 +237,25 @@ impl EventHandler {
                                     entry.update_content(content);
                                     self.storage.save_entry(&entry)
                                 }
-                                Err(e) => Err(e)
+                                Err(e) => Err(e),
                             }
                         };
-                        
+
                         // Restore TUI mode with proper screen clearing
                         enable_raw_mode()?;
                         execute!(
-                            io::stdout(), 
+                            io::stdout(),
                             EnterAlternateScreen,
                             Clear(ClearType::All),
                             crossterm::cursor::MoveTo(0, 0)
                         )?;
-                        
+
                         // Handle editor result
                         result?;
-                        
+
                         // Refresh the content in the TUI
                         self.update_content_panel(app_state, tree_state)?;
-                        
+
                         // Set flag to force full redraw on next render
                         app_state.needs_redraw = true;
                     }

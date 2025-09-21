@@ -2,8 +2,8 @@ use clap::Subcommand;
 use color_eyre::Result;
 
 use crate::sync::{
-    config::ConfigManager, 
-    engine::{SyncEngine, LocalProvider},
+    config::ConfigManager,
+    engine::{LocalProvider, SyncEngine},
     providers::AzureProvider,
 };
 
@@ -79,7 +79,9 @@ pub async fn handle_sync_command(command: SyncCommands) -> Result<()> {
                     }
                 }
                 None => {
-                    println!("  No sync configuration found. Run 'devlog sync init' to get started.");
+                    println!(
+                        "  No sync configuration found. Run 'devlog sync init' to get started."
+                    );
                 }
             }
             Ok(())
@@ -89,15 +91,17 @@ pub async fn handle_sync_command(command: SyncCommands) -> Result<()> {
 
 async fn create_sync_engine() -> Result<SyncEngine> {
     let config_manager = ConfigManager::load()?;
-    let config = config_manager.sync_config
-        .ok_or_else(|| color_eyre::eyre::eyre!("No sync configuration found. Run 'devlog sync init' first."))?;
-    
+    let config = config_manager.sync_config.ok_or_else(|| {
+        color_eyre::eyre::eyre!("No sync configuration found. Run 'devlog sync init' first.")
+    })?;
+
     // Create provider based on config
     let provider: Box<dyn crate::sync::CloudStorage> = match config.provider.as_str() {
         "local" => {
-            let local_config = config.local
+            let local_config = config
+                .local
                 .ok_or_else(|| color_eyre::eyre::eyre!("Local config missing"))?;
-            
+
             // Expand ~ in sync_dir path
             let sync_dir = if local_config.sync_dir.starts_with("~/") {
                 let home_dir = dirs::home_dir()
@@ -106,30 +110,37 @@ async fn create_sync_engine() -> Result<SyncEngine> {
             } else {
                 std::path::PathBuf::from(local_config.sync_dir)
             };
-            
+
             Box::new(LocalProvider::new(sync_dir)?)
         }
         "azure" => {
-            let azure_config = config.azure
+            let azure_config = config
+                .azure
                 .ok_or_else(|| color_eyre::eyre::eyre!("Azure config missing"))?;
-            
+
             if azure_config.connection_string.contains("REPLACE_WITH") {
                 return Err(color_eyre::eyre::eyre!(
                     "Azure connection string not configured. Please update ~/.devlog/config.toml"
                 ));
             }
-            
-            Box::new(AzureProvider::new(&azure_config.connection_string, &azure_config.container_name)?)
+
+            Box::new(AzureProvider::new(
+                &azure_config.connection_string,
+                &azure_config.container_name,
+            )?)
         }
         _ => {
-            return Err(color_eyre::eyre::eyre!("Unknown provider: {}", config.provider));
+            return Err(color_eyre::eyre::eyre!(
+                "Unknown provider: {}",
+                config.provider
+            ));
         }
     };
-    
+
     // Use ~/.devlog/entries as the local entries directory
-    let home_dir = dirs::home_dir()
-        .ok_or_else(|| color_eyre::eyre::eyre!("Could not find home directory"))?;
+    let home_dir =
+        dirs::home_dir().ok_or_else(|| color_eyre::eyre::eyre!("Could not find home directory"))?;
     let entries_dir = home_dir.join(".devlog").join("entries");
-    
+
     Ok(SyncEngine::new(provider, entries_dir))
 }

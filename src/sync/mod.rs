@@ -1,7 +1,7 @@
-use std::path::Path;
+use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use color_eyre::Result;
-use async_trait::async_trait;
+use std::path::Path;
 
 pub mod config;
 pub mod engine;
@@ -12,11 +12,10 @@ pub mod providers;
 pub struct CloudFile {
     pub name: String,
     pub last_modified: DateTime<Utc>,
-    pub size: u64,
 }
 
 /// Trait for cloud storage providers
-/// 
+///
 /// MVP: We'll implement a simple local file system version first
 /// Future: Add Azure, AWS implementations
 #[async_trait]

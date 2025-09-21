@@ -28,9 +28,15 @@ pub struct AppState {
     pub flat_items: Vec<(String, usize, bool)>, // (display_text, indent_level, is_entry)
     pub current_panel: Panel,
     pub selected_entry_content: String,
-    pub content_scroll: u16,  // Current scroll position in content
+    pub content_scroll: u16, // Current scroll position in content
     pub should_quit: bool,
-    pub needs_redraw: bool,   // Flag to force full redraw after editor
+    pub needs_redraw: bool, // Flag to force full redraw after editor
+}
+
+impl Default for AppState {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl AppState {

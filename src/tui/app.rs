@@ -1,6 +1,6 @@
 use crate::tui::data::AppState;
 use crate::tui::events::EventHandler;
-use crate::tui::tree_builder::{TreeBuilder, flatten_tree};
+use crate::tui::tree_builder::{flatten_tree, TreeBuilder};
 use crate::tui::ui::UIRenderer;
 use color_eyre::Result;
 use crossterm::{
@@ -8,11 +8,7 @@ use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use ratatui::{
-    backend::CrosstermBackend,
-    widgets::ListState,
-    Terminal,
-};
+use ratatui::{backend::CrosstermBackend, widgets::ListState, Terminal};
 use std::io;
 
 pub struct App {
@@ -25,16 +21,16 @@ impl App {
     pub fn new() -> Result<Self> {
         let mut app_state = AppState::new();
         let tree_builder = TreeBuilder::new()?;
-        
+
         // Load the tree
         app_state.tree_nodes = tree_builder.build_tree()?;
         app_state.flat_items = flatten_tree(&app_state.tree_nodes);
-        
+
         let mut tree_state = ListState::default();
         tree_state.select(Some(0));
-        
+
         let event_handler = EventHandler::new()?;
-        
+
         Ok(Self {
             app_state,
             tree_state,
@@ -49,7 +45,7 @@ impl App {
                 terminal.clear()?;
                 self.app_state.needs_redraw = false;
             }
-            
+
             terminal.draw(|f| UIRenderer::render(&self.app_state, &mut self.tree_state, f))?;
 
             if let Event::Key(key) = event::read()? {

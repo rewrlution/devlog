@@ -26,7 +26,12 @@ impl UIRenderer {
         Self::render_help_footer(app_state, f, main_chunks[1]);
     }
 
-    fn render_tree_panel(app_state: &AppState, tree_state: &mut ListState, f: &mut Frame, area: Rect) {
+    fn render_tree_panel(
+        app_state: &AppState,
+        tree_state: &mut ListState,
+        f: &mut Frame,
+        area: Rect,
+    ) {
         let items: Vec<ListItem> = app_state
             .flat_items
             .iter()
@@ -38,10 +43,7 @@ impl UIRenderer {
                     Style::default().fg(Color::Yellow)
                 };
 
-                ListItem::new(Line::from(Span::styled(
-                    text.clone(),
-                    style,
-                )))
+                ListItem::new(Line::from(Span::styled(text.clone(), style)))
             })
             .collect();
 
@@ -56,17 +58,14 @@ impl UIRenderer {
                         Style::default()
                     }),
             )
-            .highlight_style(
-                Style::default()
-                    .bg(Color::LightBlue)
-                    .fg(Color::Black)
-            );
+            .highlight_style(Style::default().bg(Color::LightBlue).fg(Color::Black));
 
         f.render_stateful_widget(list, area, tree_state);
     }
 
     fn render_content_panel(app_state: &AppState, f: &mut Frame, area: Rect) {
-        let content_lines: Vec<Line> = app_state.selected_entry_content
+        let content_lines: Vec<Line> = app_state
+            .selected_entry_content
             .lines()
             .map(|line| Line::from(line.to_string()))
             .collect();
@@ -87,7 +86,8 @@ impl UIRenderer {
                     .borders(Borders::ALL)
                     .padding(ratatui::widgets::Padding::horizontal(1)) // Add horizontal padding
                     .title(if total_lines > content_height {
-                        format!("Content ({}/{} lines)", 
+                        format!(
+                            "Content ({}/{} lines)",
                             (scroll_offset + content_height).min(total_lines),
                             total_lines
                         )
@@ -107,7 +107,9 @@ impl UIRenderer {
 
     fn render_help_footer(app_state: &AppState, f: &mut Frame, area: Rect) {
         let help_text = match app_state.current_panel {
-            Panel::Tree => "Navigation: ↑↓/jk=move, →/l/Enter=expand, ←/h=collapse, Tab=switch panel, q=quit",
+            Panel::Tree => {
+                "Navigation: ↑↓/jk=move, →/l/Enter=expand, ←/h=collapse, Tab=switch panel, q=quit"
+            }
             Panel::Content => "Navigation: ↑↓/jk=scroll, Tab=switch panel, e=edit entry, q=quit",
         };
 

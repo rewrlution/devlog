@@ -1,7 +1,7 @@
-use crate::storage::{Storage, entry::Entry};
+use crate::storage::{entry::Entry, Storage};
 use crate::utils::editor;
-use color_eyre::Result;
 use chrono::Utc;
+use color_eyre::Result;
 
 pub fn execute() -> Result<()> {
     println!("Creating new entry...");
@@ -11,8 +11,11 @@ pub fn execute() -> Result<()> {
 
     // Check if entry already exists for today
     let storage = Storage::new()?;
-    if let Ok(_) = storage.load_entry(&today) {
-        println!("Entry for {} already exists. Use 'devlog edit {}' to modify it.", today, today);
+    if storage.load_entry(&today).is_ok() {
+        println!(
+            "Entry for {} already exists. Use 'devlog edit {}' to modify it.",
+            today, today
+        );
         return Ok(());
     }
 

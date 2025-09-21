@@ -20,14 +20,16 @@ impl TreeBuilder {
         let mut year_map: HashMap<String, HashMap<String, Vec<String>>> = HashMap::new();
 
         for entry_id in entry_ids {
-            if entry_id.len() == 8 { // YYYYMMDD format
+            if entry_id.len() == 8 {
+                // YYYYMMDD format
                 let year = entry_id[0..4].to_string();
                 let month = entry_id[4..6].to_string();
-                
-                year_map.entry(year)
-                    .or_insert_with(HashMap::new)
+
+                year_map
+                    .entry(year)
+                    .or_default()
                     .entry(month)
-                    .or_insert_with(Vec::new)
+                    .or_default()
                     .push(entry_id);
             }
         }
@@ -75,7 +77,12 @@ impl TreeBuilder {
 
 fn format_entry_display(entry_id: &str) -> String {
     if entry_id.len() == 8 {
-        format!("{}-{}-{}", &entry_id[0..4], &entry_id[4..6], &entry_id[6..8])
+        format!(
+            "{}-{}-{}",
+            &entry_id[0..4],
+            &entry_id[4..6],
+            &entry_id[6..8]
+        )
     } else {
         entry_id.to_string()
     }
@@ -95,7 +102,7 @@ fn flatten_node_with_tree_art(
     node: &TreeNode,
     prefix: &str,
     is_last: bool,
-    flat_items: &mut Vec<(String, usize, bool)>
+    flat_items: &mut Vec<(String, usize, bool)>,
 ) {
     // Build the tree art prefix for this node
     let connector = if is_last { "└─ " } else { "├─ " };
@@ -107,11 +114,9 @@ fn flatten_node_with_tree_art(
         "[+] "
     };
 
-    let display_text = format!("{}{}{}{}",
-        prefix,
-        connector,
-        expansion_indicator,
-        node.display_name
+    let display_text = format!(
+        "{}{}{}{}",
+        prefix, connector, expansion_indicator, node.display_name
     );
 
     // Calculate indent level by counting tree characters (for styling)
@@ -121,9 +126,9 @@ fn flatten_node_with_tree_art(
     // Add children if expanded
     if node.is_expanded && !node.children.is_empty() {
         let child_prefix = if is_last {
-            format!("{}    ", prefix)  // 4 spaces for last node
+            format!("{}    ", prefix) // 4 spaces for last node
         } else {
-            format!("{}│   ", prefix)  // pipe + 3 spaces for continuing branch
+            format!("{}│   ", prefix) // pipe + 3 spaces for continuing branch
         };
 
         for (i, child) in node.children.iter().enumerate() {

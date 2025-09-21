@@ -6,7 +6,8 @@ pub fn execute(id: String) -> Result<()> {
     let storage = Storage::new()?;
 
     // Load existing entry
-    let mut entry = storage.load_entry(&id)
+    let mut entry = storage
+        .load_entry(&id)
         .wrap_err_with(|| format!("Entry '{}' not found", id))?;
 
     println!("Editing entry: {}", id);

@@ -3,10 +3,10 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Entry {
-    pub id: String,           // YYYYMMDD format
+    pub id: String, // YYYYMMDD format
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
-    pub content: String,      // Markdown content
+    pub content: String, // Markdown content
 }
 
 impl Entry {
