@@ -140,4 +140,81 @@ mod tests {
         assert_eq!(loaded_entry.id, entry.id);
         assert_eq!(loaded_entry.content, entry.content);
     }
+
+    #[test]
+    fn test_load_nonexistent_entry() {
+        let (storage, _temp_dir) = create_test_storage();
+
+        let result = storage.load_entry("nonexistent");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_save_entry() {
+        let (storage, temp_dir) = create_test_storage();
+        let entry = Entry::new("20250920".to_string(), "Content".to_string());
+        storage
+            .save_entry(&entry)
+            .expect("Failed to save the entry");
+
+        let path = temp_dir.path().join("entries").join("20250920.md");
+        assert!(path.exists());
+    }
+
+    #[test]
+    fn test_deserialize_entry_without_frontmatter() {
+        let (storage, _temp_dir) = create_test_storage();
+        let content = "#Simple markdown\n\nContent";
+        let entry = storage
+            .deserialize_entry("20250920", content)
+            .expect("Failed to deserialize the entry");
+
+        assert_eq!(entry.id, "20250920");
+        assert_eq!(entry.content, content);
+    }
+
+    #[test]
+    fn test_deserialize_entry_with_invalid_frontmatter() {
+        let (storage, _temp_dir) = create_test_storage();
+
+        let content = "---\ninvalid: yaml: content:\n---\n\n# Content here";
+        let result = storage.deserialize_entry("20250920", content);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_serialize_entry_format() {
+        let (storage, _temp_dir) = create_test_storage();
+        let entry = Entry::new("20250920".to_string(), "# Test\n\nContent".to_string());
+        let serialized = storage
+            .serialize_entry(&entry)
+            .expect("Failed to serialize the entry");
+
+        assert!(serialized.starts_with("---\n"));
+        assert!(serialized.contains("id: 20250920"));
+        assert!(serialized.contains("created_at:"));
+        assert!(serialized.contains("updated_at"));
+        assert!(serialized.contains("# Test\n\nContent"));
+    }
+
+    #[test]
+    fn test_roundtrip_serialization() {
+        let (storage, _temp_dir) = create_test_storage();
+
+        let original_entry = Entry::new(
+            "20250920".to_string(),
+            "# Original\n\nSome content.".to_string(),
+        );
+
+        // Serialize then deserialize
+        let serialized = storage
+            .serialize_entry(&original_entry)
+            .expect("Failed to serialize the entry.");
+        let deserialized = storage
+            .deserialize_entry(&original_entry.id, &serialized)
+            .expect("Failed to deserialize the entry.");
+
+        assert_eq!(deserialized.id, original_entry.id);
+        assert_eq!(deserialized.content, original_entry.content);
+    }
 }
