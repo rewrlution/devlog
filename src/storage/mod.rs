@@ -2,7 +2,10 @@ use crate::models::entry::Entry;
 
 use chrono::Utc;
 use color_eyre::eyre::{Context, ContextCompat, Ok, Result};
-use std::{fs, path::PathBuf};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 pub struct Storage {
     base_path: PathBuf,
@@ -14,8 +17,21 @@ impl Storage {
         let base_path = home.join(".devlog").join("entries");
 
         // Create directory if it doesn't exist
-        fs::create_dir_all(&base_path).wrap_err("Failed to create devlog directory")?;
+        fs::create_dir_all(&base_path).wrap_err_with(|| {
+            format!("Failed to create storage directory{}", base_path.display())
+        })?;
 
+        Ok(Self { base_path })
+    }
+
+    pub fn with_path(path: &Path) -> Result<Self> {
+        let base_path = path.to_path_buf();
+        fs::create_dir_all(&base_path).wrap_err_with(|| {
+            format!(
+                "Failed to create storage directory: {}",
+                base_path.display()
+            )
+        })?;
         Ok(Self { base_path })
     }
 
@@ -94,5 +110,37 @@ updated_at: {}
             updated_at: now,
             content: content.to_string(),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    /// Create a test storage instance in a temporary directory
+    fn create_test_storage() -> (Storage, TempDir) {
+        let temp_dir = TempDir::new().expect("Failed to create temp dir");
+        let entries_path = temp_dir.path().join("entries");
+        let storage = Storage::with_path(&entries_path).expect("Failed to create devlog dir");
+        (storage, temp_dir)
+    }
+
+    #[test]
+    fn test_save_and_load_entry() {
+        let (storage, _) = create_test_storage();
+
+        let id = "20250920".to_string();
+        let content = "#Test entry\n\nThis is a test.".to_string();
+        let entry = Entry::new(id, content);
+
+        // Save entry
+        storage.save_entry(&entry).expect("Failed to save entry");
+
+        // Load entry
+        let loaded_entry = storage.load_entry(&entry.id).expect("Failed to load entry");
+
+        assert_eq!(loaded_entry.id, entry.id);
+        assert_eq!(loaded_entry.content, entry.content);
     }
 }
