@@ -12,26 +12,24 @@ pub struct Storage {
 }
 
 impl Storage {
-    pub fn new() -> Result<Self> {
-        let home = dirs::home_dir().wrap_err("Could not find home directory")?;
-        let base_path = home.join(".devlog").join("entries");
+    /// Create a new Storage instance
+    pub fn new(base_dir: Option<&Path>) -> Result<Self> {
+        let base_path = match base_dir {
+            Some(dir) => dir.join("entries"),
+            None => {
+                let home_dir = dirs::home_dir().wrap_err("Could not find home directory")?;
+                home_dir.join(".devlog").join("entries")
+            }
+        };
 
         // Create directory if it doesn't exist
-        fs::create_dir_all(&base_path).wrap_err_with(|| {
-            format!("Failed to create storage directory{}", base_path.display())
-        })?;
-
-        Ok(Self { base_path })
-    }
-
-    pub fn with_path(path: &Path) -> Result<Self> {
-        let base_path = path.to_path_buf();
         fs::create_dir_all(&base_path).wrap_err_with(|| {
             format!(
                 "Failed to create storage directory: {}",
                 base_path.display()
             )
         })?;
+
         Ok(Self { base_path })
     }
 
@@ -57,7 +55,7 @@ impl Storage {
     /// Serialize entry to markdown with YAML frontmatter
     fn serialize_entry(&self, entry: &Entry) -> Result<String> {
         let frontmatter = format!(
-            r#"---"
+            r#"---
 id: {}
 created_at: {}
 updated_at: {}
@@ -121,14 +119,13 @@ mod tests {
     /// Create a test storage instance in a temporary directory
     fn create_test_storage() -> (Storage, TempDir) {
         let temp_dir = TempDir::new().expect("Failed to create temp dir");
-        let entries_path = temp_dir.path().join("entries");
-        let storage = Storage::with_path(&entries_path).expect("Failed to create devlog dir");
+        let storage = Storage::new(Some(temp_dir.path())).expect("Failed to create storage");
         (storage, temp_dir)
     }
 
     #[test]
     fn test_save_and_load_entry() {
-        let (storage, _) = create_test_storage();
+        let (storage, _temp_dir) = create_test_storage();
 
         let id = "20250920".to_string();
         let content = "#Test entry\n\nThis is a test.".to_string();
