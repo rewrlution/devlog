@@ -1,5 +1,7 @@
 use clap::{Parser, Subcommand};
 
+use crate::storage::Storage;
+
 mod commands;
 mod models;
 mod storage;
@@ -39,11 +41,18 @@ enum Commands {
 
 fn main() {
     let cli = Cli::parse();
+    let storage = Storage::new(None).unwrap_or_else(|e| {
+        eprintln!("Failed to initialize storage: {}", e);
+        std::process::exit(1);
+    });
 
-    match cli.command {
+    if let Err(e) = match cli.command {
         Commands::New => commands::new::execute(),
         Commands::Edit { id } => commands::edit::execute(id),
-        Commands::Show { id } => commands::show::execute(id),
+        Commands::Show { id } => commands::show::execute(&storage, id),
         Commands::List { interactive } => commands::list::execute(interactive),
+    } {
+        eprintln!("Error: {}", e);
+        std::process::exit(1);
     }
 }
