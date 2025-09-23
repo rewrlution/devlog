@@ -5,6 +5,7 @@ use crate::storage::Storage;
 mod commands;
 mod models;
 mod storage;
+mod utils;
 
 #[derive(Parser)]
 #[command(name = env!("CARGO_PKG_NAME"))]
@@ -18,7 +19,11 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     /// Create a new entry
-    New,
+    New {
+        /// Entry ID to create (format: YYYYMMDD)
+        #[arg(long, value_name = "YYYYMMDD")]
+        id: String,
+    },
     /// Edit an existing entry
     Edit {
         /// Entry ID to edit (format: YYYYMMDD)
@@ -47,7 +52,7 @@ fn main() {
     });
 
     if let Err(e) = match cli.command {
-        Commands::New => commands::new::execute(),
+        Commands::New { id } => commands::new::execute(&storage, Some(id)),
         Commands::Edit { id } => commands::edit::execute(id),
         Commands::Show { id } => commands::show::execute(&storage, id),
         Commands::List { interactive } => commands::list::execute(interactive),
