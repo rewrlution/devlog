@@ -1,6 +1,8 @@
 use color_eyre::eyre::Result;
 
-pub fn execute(interactive: bool) -> Result<()> {
+use crate::storage::Storage;
+
+pub fn execute(storage: &Storage, interactive: bool) -> Result<()> {
     if interactive {
         println!("Listing in interactive mode");
     } else {
@@ -9,3 +11,5 @@ pub fn execute(interactive: bool) -> Result<()> {
 
     Ok(())
 }
+
+fn execute_list(storage: &Storage) {}

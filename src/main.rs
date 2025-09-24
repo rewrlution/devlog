@@ -55,7 +55,7 @@ fn main() {
         Commands::New { id } => commands::new::execute(&storage, id),
         Commands::Edit { id } => commands::edit::execute(&storage, id),
         Commands::Show { id } => commands::show::execute(&storage, id),
-        Commands::List { interactive } => commands::list::execute(interactive),
+        Commands::List { interactive } => commands::list::execute(&storage, interactive),
     } {
         eprintln!("Error: {}", e);
         std::process::exit(1);
