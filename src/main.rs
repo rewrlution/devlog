@@ -22,7 +22,7 @@ enum Commands {
     New {
         /// Entry ID to create (format: YYYYMMDD)
         #[arg(long, value_name = "YYYYMMDD")]
-        id: String,
+        id: Option<String>,
     },
     /// Edit an existing entry
     Edit {
@@ -52,7 +52,7 @@ fn main() {
     });
 
     if let Err(e) = match cli.command {
-        Commands::New { id } => commands::new::execute(&storage, Some(id)),
+        Commands::New { id } => commands::new::execute(&storage, id),
         Commands::Edit { id } => commands::edit::execute(id),
         Commands::Show { id } => commands::show::execute(&storage, id),
         Commands::List { interactive } => commands::list::execute(interactive),

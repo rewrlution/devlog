@@ -1,6 +1,6 @@
 use std::{fs, process};
 
-use color_eyre::eyre::{bail, Context, Result};
+use color_eyre::eyre::{Context, Result, bail};
 
 /// Open a text editor for users to write content
 pub fn launch_editor(existing_content: Option<&str>) -> Result<String> {
