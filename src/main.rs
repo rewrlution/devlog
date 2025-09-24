@@ -53,7 +53,7 @@ fn main() {
 
     if let Err(e) = match cli.command {
         Commands::New { id } => commands::new::execute(&storage, id),
-        Commands::Edit { id } => commands::edit::execute(id),
+        Commands::Edit { id } => commands::edit::execute(&storage, id),
         Commands::Show { id } => commands::show::execute(&storage, id),
         Commands::List { interactive } => commands::list::execute(interactive),
     } {
