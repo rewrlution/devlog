@@ -1,4 +1,4 @@
-use crate::tui::models::tree_node::TreeNode;
+use crate::tui::models::node::TreeNode;
 
 #[derive(PartialEq)]
 pub enum Panel {
