@@ -11,6 +11,7 @@ color-eyre = "0.6.5"
 dirs = "6.0.0"
 serde = { version = "1.0.226", features = ["derive"] }
 serde_yaml = "0.9.34"
+unicode-width = "0.2.1"
 walkdir = "2.5.0"
 
 [dev-dependencies]
