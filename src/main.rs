@@ -5,6 +5,7 @@ use crate::storage::Storage;
 mod commands;
 mod models;
 mod storage;
+mod tui;
 mod utils;
 
 #[derive(Parser)]
