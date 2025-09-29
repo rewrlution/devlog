@@ -2,49 +2,60 @@ use std::io;
 
 use color_eyre::Result;
 use crossterm::{
-    event::{self, Event, KeyCode},
+    event::{self, Event},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use ratatui::{
-    init,
-    layout::Alignment,
-    widgets::{Block, Borders, Paragraph},
-    DefaultTerminal,
+use ratatui::{init, widgets::ListState, DefaultTerminal};
+
+use crate::{
+    storage::Storage,
+    tui::{
+        handlers::keyboard::KeyboardHandler,
+        models::state::AppState,
+        tree::{builder::TreeBuilder, flattener::TreeFlattener},
+        ui::UIRenderer,
+    },
 };
 
-use crate::storage::Storage;
-
 pub struct App {
-    should_quit: bool,
+    app_state: AppState,
+    tree_state: ListState,
+    keyboard_handler: KeyboardHandler,
 }
 
 impl App {
-    pub fn new() -> Self {
-        Self { should_quit: false }
+    pub fn new(storage: &Storage) -> Result<Self> {
+        let tree_builder = TreeBuilder::new(storage.clone());
+        let tree_nodes = tree_builder.build_tree()?;
+        let flat_items = TreeFlattener::flatten(&tree_nodes);
+
+        let mut app_state = AppState::new();
+        app_state.tree_nodes = tree_nodes;
+        app_state.flat_items = flat_items;
+
+        Ok(Self {
+            app_state,
+            tree_state: ListState::default(),
+            keyboard_handler: KeyboardHandler::new(),
+        })
     }
 
     pub fn run(&mut self, terminal: &mut DefaultTerminal) -> Result<()> {
         loop {
             // Draw the UI
-            terminal.draw(|frame| {
-                let area = frame.area();
-
-                let paragraph = Paragraph::new("Hello World!\n\nPress 'q' to quit")
-                    .alignment(Alignment::Center)
-                    .block(Block::default().borders(Borders::ALL).title("devlog 1.0"));
-
-                frame.render_widget(paragraph, area);
-            })?;
+            terminal.draw(|f| UIRenderer::render(&self.app_state, &mut self.tree_state, f))?;
 
             // Handle events
             if let Event::Key(key) = event::read()? {
-                if key.code == KeyCode::Char('q') {
-                    self.should_quit = true;
-                }
+                self.keyboard_handler.handle_key_event(
+                    key.code,
+                    &mut self.app_state,
+                    &mut self.tree_state,
+                )?;
             }
 
-            if self.should_quit {
+            if self.app_state.should_quit {
                 break;
             }
         }
@@ -66,7 +77,7 @@ pub fn launch_tui(storage: &Storage) -> Result<()> {
     // `app` is the logic and the state of our application.
     // It handles events, and maintains app states.
     let mut terminal = init();
-    let mut app = App::new();
+    let mut app = App::new(storage)?;
 
     let result = app.run(&mut terminal);
 

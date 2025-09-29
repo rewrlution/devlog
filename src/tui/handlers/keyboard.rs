@@ -1,4 +1,3 @@
-use crate::storage::Storage;
 use crate::tui::handlers::navigation::TreeNavigator;
 use crate::tui::models::state::{AppState, Panel};
 use color_eyre::Result;
