@@ -1,4 +1,4 @@
-use crate::tui::models::node::TreeNode;
+use crate::tui::{models::node::TreeNode, tree::flattener::FlatTreeItem};
 
 #[derive(PartialEq)]
 pub enum Panel {
@@ -8,6 +8,7 @@ pub enum Panel {
 
 pub struct AppState {
     pub tree_nodes: Vec<TreeNode>,
+    pub flat_items: Vec<FlatTreeItem>,
     pub current_panel: Panel,
     pub selected_entry: String,
     pub content_scroll: u16, // Current scroll position in content
@@ -25,6 +26,7 @@ impl AppState {
     pub fn new() -> Self {
         Self {
             tree_nodes: Vec::new(),
+            flat_items: Vec::new(),
             current_panel: Panel::Nav,
             selected_entry: String::new(),
             content_scroll: 0,
