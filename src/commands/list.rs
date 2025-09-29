@@ -5,7 +5,7 @@ use crate::tui::app::launch_tui;
 
 pub fn execute(storage: &Storage, interactive: bool) -> Result<()> {
     if interactive {
-        launch_tui()?;
+        launch_tui(storage)?;
     } else {
         display_list(storage)?;
     }

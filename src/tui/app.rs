@@ -13,6 +13,8 @@ use ratatui::{
     DefaultTerminal,
 };
 
+use crate::storage::Storage;
+
 pub struct App {
     should_quit: bool,
 }
@@ -51,7 +53,7 @@ impl App {
     }
 }
 
-pub fn launch_tui() -> Result<()> {
+pub fn launch_tui(storage: &Storage) -> Result<()> {
     // `raw mode` disables the terminal's default line-buffered input processing
     // `EnterAlternateScreen` starts a completely clean screen
     // `LeaveAlternateScreen` goes back to the original state

@@ -2,21 +2,16 @@ use color_eyre::Result;
 use crossterm::event::KeyCode;
 use ratatui::widgets::ListState;
 
-use crate::{
-    storage::Storage,
-    tui::{
-        models::{node::TreeNode, state::AppState},
-        tree::flattener::{self, FlatTreeItem, TreeFlattener},
-    },
+use crate::tui::{
+    models::{node::TreeNode, state::AppState},
+    tree::flattener::TreeFlattener,
 };
 
-pub struct TreeNavigator {
-    storage: Storage,
-}
+pub struct TreeNavigator {}
 
 impl TreeNavigator {
-    pub fn new(storage: Storage) -> Self {
-        Self { storage }
+    pub fn new() -> Self {
+        Self {}
     }
 
     pub fn handle_navigation(
@@ -24,7 +19,6 @@ impl TreeNavigator {
         key_code: KeyCode,
         app_state: &mut AppState,
         tree_state: &mut ListState,
-        flat_items: &mut Vec<FlatTreeItem>,
     ) -> Result<()> {
         match key_code {
             KeyCode::Up | KeyCode::Char('k') => {
