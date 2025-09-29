@@ -13,7 +13,8 @@ impl TreeBuilder {
         Self { storage }
     }
 
-    fn build_map(&self) -> Result<HashMap<String, HashMap<String, Vec<String>>>> {
+    /// Builds a hierarchical map of entries organized by year -> month -> days
+    fn build_entry_map(&self) -> Result<HashMap<String, HashMap<String, Vec<String>>>> {
         let entry_ids = self.storage.list_entries()?;
 
         // Build year -> month -> day hierarchy
@@ -35,94 +36,55 @@ impl TreeBuilder {
         Ok(year_map)
     }
 
+    /// Builds the complete tree structure from storage
     pub fn build_tree(&self) -> Result<Vec<TreeNode>> {
-        let year_map = self.build_map()?;
-        // Convert to tree structure
+        let year_map = self.build_entry_map()?;
         let mut tree_nodes = Vec::new();
+
+        // Sort years newest first
         let mut years: Vec<_> = year_map.keys().collect();
-        years.sort_by(|a, b| b.cmp(a)); // Newest first
+        years.sort_by(|a, b| b.cmp(a));
 
         for year in years {
-            let year_months = &year_map[year];
-            let mut months: Vec<_> = year_months.keys().collect();
-            months.sort_by(|a, b| b.cmp(a));
-
-            let mut month_nodes = Vec::new();
-            for month in months {
-                let month_days = &year_months[month];
-                let mut days = month_days.clone();
-                days.sort_by(|a, b| b.cmp(a));
-
-                let day_nodes: Vec<TreeNode> =
-                    days.into_iter().map(|d| TreeNode::new_entry(d)).collect();
-
-                month_nodes.push(TreeNode {
-                    name: month.to_string(),
-                    children: day_nodes,
-                    is_expanded: false,
-                    is_entry: false,
-                });
-            }
-
-            tree_nodes.push(TreeNode {
-                name: year.to_string(),
-                children: month_nodes,
-                is_expanded: false,
-                is_entry: false,
-            });
+            let year_node = self.build_year_node(year, &year_map[year]);
+            tree_nodes.push(year_node);
         }
 
         Ok(tree_nodes)
     }
-}
 
-pub fn flatten_tree(nodes: &[TreeNode]) -> Vec<(String, usize, bool)> {
-    let mut flat_items = Vec::new();
-    for (i, node) in nodes.iter().enumerate() {
-        let is_last = i == nodes.len() - 1;
-        let prefix = String::new();
-        flatten_node_with_tree_art(node, &prefix, is_last, &mut flat_items);
+    fn build_year_node(&self, year: &str, months: &HashMap<String, Vec<String>>) -> TreeNode {
+        let mut month_nodes = Vec::new();
+
+        // Sort months newest first
+        let mut sorted_months: Vec<_> = months.keys().collect();
+        sorted_months.sort_by(|a, b| b.cmp(a));
+
+        for month in sorted_months {
+            let month_node = self.build_month_node(month, &months[month]);
+            month_nodes.push(month_node);
+        }
+
+        TreeNode {
+            name: year.to_string(),
+            children: month_nodes,
+            is_expanded: false,
+            is_entry: false,
+        }
     }
 
-    flat_items
-}
+    fn build_month_node(&self, month: &str, days: &[String]) -> TreeNode {
+        // Sort days newest first
+        let mut sorted_days = days.to_vec();
+        sorted_days.sort_by(|a, b| b.cmp(a));
 
-fn flatten_node_with_tree_art(
-    node: &TreeNode,
-    prefix: &str,
-    is_last: bool,
-    flat_items: &mut Vec<(String, usize, bool)>,
-) {
-    // Build the tree art prefix for this node
-    let connector = if is_last { "└─ " } else { "├─ " };
-    let expansion_indicator = if node.is_entry {
-        ""
-    } else if node.is_expanded {
-        "[-] "
-    } else {
-        "[+] "
-    };
+        let day_nodes: Vec<TreeNode> = sorted_days.into_iter().map(TreeNode::new_entry).collect();
 
-    let display_text = format!(
-        "{}{}{}{}",
-        prefix, connector, expansion_indicator, node.name
-    );
-
-    // Calcualte indent level by counting tree characters (for styling)
-    let indent_level = prefix.chars().filter(|&c| c == '|' || c == ' ').count() / 4;
-    flat_items.push((display_text, indent_level, node.is_entry));
-
-    // Add children if expanded
-    if node.is_expanded && !node.children.is_empty() {
-        let child_prefix = if is_last {
-            format!("{}    ", prefix) // 4 spaces for last node
-        } else {
-            format!("{}|  ", prefix) // pipe + 3 spaces for continuing branch
-        };
-
-        for (i, child) in node.children.iter().enumerate() {
-            let child_is_last = i == node.children.len() - 1;
-            flatten_node_with_tree_art(child, &child_prefix, child_is_last, flat_items);
+        TreeNode {
+            name: month.to_string(),
+            children: day_nodes,
+            is_expanded: false,
+            is_entry: false,
         }
     }
 }
@@ -130,7 +92,7 @@ fn flatten_node_with_tree_art(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{models::entry::Entry, tui::tree_builder};
+    use crate::models::entry::Entry;
     use tempfile::TempDir;
 
     /// Create a test storage instance in a temporary directory
@@ -164,7 +126,7 @@ mod tests {
         );
 
         let tree_builder = TreeBuilder::new(storage);
-        let result = tree_builder.build_map().expect("Failed to build map");
+        let result = tree_builder.build_entry_map().expect("Failed to build map");
 
         assert_eq!(result.len(), 2); // Two years
         assert!(result.contains_key("2025"));
