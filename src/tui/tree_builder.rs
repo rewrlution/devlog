@@ -76,6 +76,57 @@ impl TreeBuilder {
     }
 }
 
+pub fn flatten_tree(nodes: &[TreeNode]) -> Vec<(String, usize, bool)> {
+    let mut flat_items = Vec::new();
+    for (i, node) in nodes.iter().enumerate() {
+        let is_last = i == nodes.len() - 1;
+        let prefix = String::new();
+        flatten_node_with_tree_art(node, &prefix, is_last, &mut flat_items);
+    }
+
+    flat_items
+}
+
+fn flatten_node_with_tree_art(
+    node: &TreeNode,
+    prefix: &str,
+    is_last: bool,
+    flat_items: &mut Vec<(String, usize, bool)>,
+) {
+    // Build the tree art prefix for this node
+    let connector = if is_last { "└─ " } else { "├─ " };
+    let expansion_indicator = if node.is_entry {
+        ""
+    } else if node.is_expanded {
+        "[-] "
+    } else {
+        "[+] "
+    };
+
+    let display_text = format!(
+        "{}{}{}{}",
+        prefix, connector, expansion_indicator, node.name
+    );
+
+    // Calcualte indent level by counting tree characters (for styling)
+    let indent_level = prefix.chars().filter(|&c| c == '|' || c == ' ').count() / 4;
+    flat_items.push((display_text, indent_level, node.is_entry));
+
+    // Add children if expanded
+    if node.is_expanded && !node.children.is_empty() {
+        let child_prefix = if is_last {
+            format!("{}    ", prefix) // 4 spaces for last node
+        } else {
+            format!("{}|  ", prefix) // pipe + 3 spaces for continuing branch
+        };
+
+        for (i, child) in node.children.iter().enumerate() {
+            let child_is_last = i == node.children.len() - 1;
+            flatten_node_with_tree_art(child, &child_prefix, child_is_last, flat_items);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
