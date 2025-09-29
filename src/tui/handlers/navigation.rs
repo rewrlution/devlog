@@ -55,7 +55,7 @@ impl TreeNavigator {
 
     fn toggle_node(&self, app_state: &mut AppState, tree_state: &mut ListState) -> Result<()> {
         if let Some(selected) = tree_state.selected() {
-            if let Some((_, _, is_entry)) = app_state.flat_items.get(selected) {
+            if let Some((_, is_entry)) = app_state.flat_items.get(selected) {
                 if !is_entry {
                     // It's a folder, toggle expansion
                     let mut current_index = 0;

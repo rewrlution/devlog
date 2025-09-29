@@ -35,7 +35,7 @@ impl UIRenderer {
         let items: Vec<ListItem> = app_state
             .flat_items
             .iter()
-            .map(|(text, _indent, is_entry)| {
+            .map(|(text, is_entry)| {
                 // Tree art is now included in the text, no need for additional indentation
                 let style = if *is_entry {
                     Style::default().fg(Color::White)

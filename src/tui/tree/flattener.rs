@@ -1,7 +1,7 @@
 use crate::tui::models::node::TreeNode;
 
-/// Represents a flattened tree item with display text, indent level, and entry status
-pub type FlatTreeItem = (String, usize, bool);
+/// Represents a flattened tree item with display text and entry status
+pub type FlatTreeItem = (String, bool);
 
 pub struct TreeFlattener;
 
@@ -26,9 +26,8 @@ impl TreeFlattener {
         flat_items: &mut Vec<FlatTreeItem>,
     ) {
         let display_text = Self::build_display_text(node, prefix, is_last);
-        let indent_level = Self::calculate_indent_level(prefix);
 
-        flat_items.push((display_text, indent_level, node.is_entry));
+        flat_items.push((display_text, node.is_entry));
 
         // Process children if node is expanded
         if node.is_expanded && !node.children.is_empty() {
@@ -59,10 +58,6 @@ impl TreeFlattener {
         } else {
             "[+] "
         }
-    }
-
-    fn calculate_indent_level(prefix: &str) -> usize {
-        prefix.chars().filter(|&c| c == '│' || c == ' ').count() / 4
     }
 
     fn build_child_prefix(prefix: &str, is_last: bool) -> String {
@@ -106,9 +101,8 @@ mod tests {
         let result = TreeFlattener::flatten(&nodes);
 
         assert_eq!(result.len(), 1);
-        let (display_text, indent_level, is_entry) = &result[0];
+        let (display_text, is_entry) = &result[0];
         assert_eq!(display_text, "└─ 20250920");
-        assert_eq!(*indent_level, 0);
         assert!(*is_entry);
     }
 
@@ -118,9 +112,8 @@ mod tests {
         let result = TreeFlattener::flatten(&nodes);
 
         assert_eq!(result.len(), 1);
-        let (display_text, indent_level, is_entry) = &result[0];
+        let (display_text, is_entry) = &result[0];
         assert_eq!(display_text, "└─ [+] 2025");
-        assert_eq!(*indent_level, 0);
         assert!(!*is_entry);
     }
 
@@ -130,9 +123,8 @@ mod tests {
         let result = TreeFlattener::flatten(&nodes);
 
         assert_eq!(result.len(), 1);
-        let (display_text, indent_level, is_entry) = &result[0];
+        let (display_text, is_entry) = &result[0];
         assert_eq!(display_text, "└─ [-] 2025");
-        assert_eq!(*indent_level, 0);
         assert!(!*is_entry);
     }
 
@@ -150,9 +142,8 @@ mod tests {
         assert_eq!(result[1].0, "├─ 20250919");
         assert_eq!(result[2].0, "└─ 20250918");
 
-        // All should have same indent level and be entries
-        for (_, indent_level, is_entry) in &result {
-            assert_eq!(*indent_level, 0);
+        // All should be entries
+        for (_, is_entry) in &result {
             assert!(*is_entry);
         }
     }
@@ -165,16 +156,13 @@ mod tests {
 
         assert_eq!(result.len(), 3);
         assert_eq!(result[0].0, "└─ [-] 09");
-        assert_eq!(result[0].1, 0); // indent level
-        assert!(!result[0].2); // not an entry
+        assert!(!result[0].1); // not an entry
 
         assert_eq!(result[1].0, "    ├─ 20250920");
-        assert_eq!(result[1].1, 1); // indent level 1
-        assert!(result[1].2); // is an entry
+        assert!(result[1].1); // is an entry
 
         assert_eq!(result[2].0, "    └─ 20250919");
-        assert_eq!(result[2].1, 1); // indent level 1
-        assert!(result[2].2); // is an entry
+        assert!(result[2].1); // is an entry
     }
 
     #[test]
@@ -186,8 +174,7 @@ mod tests {
         // Only the folder should be shown, children should be hidden
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].0, "└─ [+] 09");
-        assert_eq!(result[0].1, 0);
-        assert!(!result[0].2);
+        assert!(!result[0].1);
     }
 
     #[test]
@@ -205,27 +192,22 @@ mod tests {
 
         // Year node
         assert_eq!(result[0].0, "└─ [-] 2025");
-        assert_eq!(result[0].1, 0);
-        assert!(!result[0].2);
+        assert!(!result[0].1);
 
         // September (expanded)
         assert_eq!(result[1].0, "    ├─ [-] 09");
-        assert_eq!(result[1].1, 1);
-        assert!(!result[1].2);
+        assert!(!result[1].1);
 
         // September entries
         assert_eq!(result[2].0, "    │   ├─ 20250920");
-        assert_eq!(result[2].1, 2);
-        assert!(result[2].2);
+        assert!(result[2].1);
 
         assert_eq!(result[3].0, "    │   └─ 20250919");
-        assert_eq!(result[3].1, 2);
-        assert!(result[3].2);
+        assert!(result[3].1);
 
         // August (collapsed)
         assert_eq!(result[4].0, "    └─ [+] 08");
-        assert_eq!(result[4].1, 1);
-        assert!(!result[4].2);
+        assert!(!result[4].1);
     }
 
     #[test]
@@ -242,15 +224,6 @@ mod tests {
             TreeFlattener::get_expansion_indicator(&create_folder_node("test", vec![], true)),
             "[-] "
         );
-    }
-
-    #[test]
-    fn test_calculate_indent_level() {
-        assert_eq!(TreeFlattener::calculate_indent_level(""), 0);
-        assert_eq!(TreeFlattener::calculate_indent_level("    "), 1);
-        assert_eq!(TreeFlattener::calculate_indent_level("│   "), 1);
-        assert_eq!(TreeFlattener::calculate_indent_level("    │   "), 2);
-        assert_eq!(TreeFlattener::calculate_indent_level("        "), 2);
     }
 
     #[test]
