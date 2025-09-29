@@ -1,11 +1,12 @@
 use crate::tui::{models::node::TreeNode, tree::flattener::FlatTreeItem};
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub enum Panel {
     Nav,
     Content,
 }
 
+#[derive(Debug)]
 pub struct AppState {
     pub tree_nodes: Vec<TreeNode>,
     pub flat_items: Vec<FlatTreeItem>,

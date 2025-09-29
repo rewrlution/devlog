@@ -34,9 +34,15 @@ impl App {
         app_state.tree_nodes = tree_nodes;
         app_state.flat_items = flat_items;
 
+        // Initialize tree_state with first item selected
+        let mut tree_state = ListState::default();
+        if !app_state.flat_items.is_empty() {
+            tree_state.select(Some(0));
+        }
+
         Ok(Self {
             app_state,
-            tree_state: ListState::default(),
+            tree_state,
             keyboard_handler: KeyboardHandler::new(),
         })
     }
