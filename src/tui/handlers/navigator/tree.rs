@@ -63,7 +63,7 @@ impl TreeNavigator {
 
     fn toggle_node(&self, app_state: &mut AppState, tree_state: &mut ListState) -> Result<()> {
         if let Some(selected) = tree_state.selected() {
-            if let Some((_, is_entry)) = app_state.flat_items.get(selected) {
+            if let Some((_, _, is_entry)) = app_state.flat_items.get(selected) {
                 if !is_entry {
                     // It's a folder, toggle expansion
                     let mut current_index = 0;
@@ -138,14 +138,8 @@ impl TreeNavigator {
         tree_state: &mut ListState,
     ) -> Result<()> {
         if let Some(selected) = tree_state.selected() {
-            if let Some((display_text, is_entry)) = app_state.flat_items.get(selected) {
+            if let Some((entry_id, _, is_entry)) = app_state.flat_items.get(selected) {
                 if *is_entry {
-                    // Extract entry ID from display text. Examples are:
-                    // "└─ 20250920" -> "20250920"
-                    // "├─ 20241231" -> "20241231"
-                    // "│   └─ 20250920" -> "20250920"
-                    let entry_id = &display_text[display_text.len() - 8..];
-
                     match self.storage.load_entry(entry_id) {
                         Ok(entry) => {
                             app_state.selected_entry_content = entry.content;
