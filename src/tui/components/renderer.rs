@@ -1,8 +1,8 @@
-use crate::tui::models::state::AppState;
 use super::{
     layout::main_layout::MainLayout,
     panels::{content_panel::ContentPanel, footer_panel::FooterPanel, tree_panel::TreePanel},
 };
+use crate::tui::models::state::AppState;
 use ratatui::{widgets::ListState, Frame};
 
 /// Main UI renderer that coordinates all UI components
@@ -17,6 +17,6 @@ impl UIRenderer {
         // Render each panel in its designated area
         TreePanel::render(app_state, tree_state, f, layout_areas.tree_area);
         ContentPanel::render(app_state, f, layout_areas.content_area);
-        FooterPanel::render(f, layout_areas.footer_area);
+        FooterPanel::render(app_state, f, layout_areas.footer_area);
     }
 }
