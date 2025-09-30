@@ -2,16 +2,21 @@ use color_eyre::Result;
 use crossterm::event::KeyCode;
 use ratatui::widgets::ListState;
 
-use crate::tui::{
-    models::{node::TreeNode, state::AppState},
-    tree::flattener::TreeFlattener,
+use crate::{
+    storage::{self, Storage},
+    tui::{
+        models::{node::TreeNode, state::AppState},
+        tree::flattener::TreeFlattener,
+    },
 };
 
-pub struct TreeNavigator {}
+pub struct TreeNavigator {
+    storage: Storage,
+}
 
 impl TreeNavigator {
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(storage: Storage) -> Self {
+        Self { storage }
     }
 
     pub fn handle_navigation(
@@ -35,6 +40,9 @@ impl TreeNavigator {
             }
             _ => {}
         }
+
+        // Update content panel when selection changes
+        self.update_content_panel(app_state, tree_state)?;
         Ok(())
     }
 
@@ -122,5 +130,33 @@ impl TreeNavigator {
             }
         }
         Ok(false)
+    }
+
+    fn update_content_panel(
+        &self,
+        app_state: &mut AppState,
+        tree_state: &mut ListState,
+    ) -> Result<()> {
+        if let Some(selected) = tree_state.selected() {
+            if let Some((text, is_entry)) = app_state.flat_items.get(selected) {
+                if *is_entry {
+                    // This function is fragile, it depends on the visual text of the entry
+                    // The last 8 digits is the filename, which is YYYYMMDD
+                    let entry_id = &text[text.len() - 8..];
+                    match self.storage.load_entry(entry_id) {
+                        Ok(entry) => {
+                            app_state.selected_entry_content = entry.content;
+                        }
+                        Err(_) => {
+                            app_state.selected_entry_content = "Error loading entry".to_string();
+                        }
+                    }
+                } else {
+                    app_state.selected_entry_content =
+                        "Select an entry to view its content".to_string();
+                }
+            }
+        }
+        Ok(())
     }
 }

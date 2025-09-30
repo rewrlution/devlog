@@ -43,7 +43,7 @@ impl App {
         Ok(Self {
             app_state,
             tree_state,
-            keyboard_handler: KeyboardHandler::new(),
+            keyboard_handler: KeyboardHandler::new(storage.clone()),
         })
     }
 

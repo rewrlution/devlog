@@ -1,3 +1,4 @@
+use crate::storage::{self, Storage};
 use crate::tui::handlers::navigator::content::ContentNavigator;
 use crate::tui::handlers::navigator::tree::TreeNavigator;
 use crate::tui::models::state::{AppState, Panel};
@@ -11,9 +12,9 @@ pub struct KeyboardHandler {
 }
 
 impl KeyboardHandler {
-    pub fn new() -> Self {
+    pub fn new(storage: Storage) -> Self {
         Self {
-            tree_navigator: TreeNavigator::new(),
+            tree_navigator: TreeNavigator::new(storage),
             content_navigator: ContentNavigator::new(),
         }
     }
