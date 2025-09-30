@@ -21,6 +21,19 @@ impl ContentNavigator {
             KeyCode::Home => {
                 self.reset_content_scroll(app_state);
             }
+            KeyCode::End => {
+                self.scroll_to_bottom(app_state);
+            }
+            KeyCode::PageUp => {
+                for _ in 0..10 {
+                    self.scroll_content_up(app_state);
+                }
+            }
+            KeyCode::PageDown => {
+                for _ in 0..10 {
+                    self.scroll_content_down(app_state);
+                }
+            }
             _ => {}
         }
 
@@ -38,6 +51,12 @@ impl ContentNavigator {
         if app_state.content_scroll < max_scroll {
             app_state.content_scroll += 1;
         }
+    }
+
+    fn scroll_to_bottom(&self, app_state: &mut AppState) {
+        let content_lines = app_state.selected_entry_content.lines().count();
+        let max_scroll = content_lines.saturating_sub(1) as u16;
+        app_state.content_scroll = max_scroll;
     }
 
     fn reset_content_scroll(&self, app_state: &mut AppState) {
