@@ -28,13 +28,8 @@ impl EditorHandler {
         if let Some(selected) = tree_state.selected() {
             // Extract the needed values from the immutable borrow first
             let entry_info = app_state.flat_items.get(selected).cloned();
-            if let Some((text, is_entry)) = entry_info {
+            if let Some((entry_id, _, is_entry)) = entry_info {
                 if is_entry {
-                    // Extract entry ID from display text. Examples are:
-                    // "└─ 20250920" -> "20250920"
-                    // "├─ 20241231" -> "20241231"
-                    // "│   └─ 20250920" -> "20250920"
-                    let entry_id = &text[text.len() - 8..];
                     self.launch_editor_for_entry(&entry_id, app_state)?;
                 }
             }

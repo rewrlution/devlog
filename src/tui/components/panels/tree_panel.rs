@@ -12,24 +12,18 @@ pub struct TreePanel;
 
 impl TreePanel {
     /// Renders the tree navigation panel
-    pub fn render(
-        app_state: &AppState,
-        tree_state: &mut ListState,
-        f: &mut Frame,
-        area: Rect,
-    ) {
+    pub fn render(app_state: &AppState, tree_state: &mut ListState, f: &mut Frame, area: Rect) {
         let items: Vec<ListItem> = app_state
             .flat_items
             .iter()
-            .map(|(text, is_entry)| {
-                // Tree art is now included in the text, no need for additional indentation
+            .map(|(_, display_text, is_entry)| {
                 let style = if *is_entry {
                     Style::default().fg(Color::White)
                 } else {
                     Style::default().fg(Color::Yellow)
                 };
 
-                ListItem::new(Line::from(Span::styled(text.clone(), style)))
+                ListItem::new(Line::from(Span::styled(display_text.clone(), style)))
             })
             .collect();
 
