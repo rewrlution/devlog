@@ -50,27 +50,47 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_app_state_scroll_up() {
+    fn test_content_navigator_scroll_up() {
+        let navigator = ContentNavigator::new();
         let mut state = AppState::new();
         state.content_scroll = 5;
-        state.scroll_content_up();
+        navigator.scroll_content_up(&mut state);
         assert_eq!(state.content_scroll, 4);
 
         // Test saturating behavior
         state.content_scroll = 0;
-        state.scroll_content_up();
+        navigator.scroll_content_up(&mut state);
         assert_eq!(state.content_scroll, 0);
     }
 
     #[test]
-    fn test_app_state_scroll_down() {
+    fn test_content_navigator_scroll_down() {
+        let navigator = ContentNavigator::new();
         let mut state = AppState::new();
-        state.scroll_content_down(10);
+
+        // Set up some content with multiple lines
+        state.selected_entry_content = "Line 1\nLine 2\nLine 3\nLine 4\nLine 5".to_string();
+
+        navigator.scroll_content_down(&mut state);
         assert_eq!(state.content_scroll, 1);
 
-        // Test max limit
+        // Test that we can scroll to the max content
+        for _ in 0..3 {
+            navigator.scroll_content_down(&mut state);
+        }
+        assert_eq!(state.content_scroll, 4); // 5 lines, so max scroll is 4
+
+        // Test that scrolling beyond max doesn't increase scroll
+        navigator.scroll_content_down(&mut state);
+        assert_eq!(state.content_scroll, 4);
+    }
+
+    #[test]
+    fn test_content_navigator_reset_scroll() {
+        let navigator = ContentNavigator::new();
+        let mut state = AppState::new();
         state.content_scroll = 10;
-        state.scroll_content_down(10);
-        assert_eq!(state.content_scroll, 10);
+        navigator.reset_content_scroll(&mut state);
+        assert_eq!(state.content_scroll, 0);
     }
 }

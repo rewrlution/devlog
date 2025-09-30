@@ -1,3 +1,4 @@
+use crate::tui::handlers::navigator::content::ContentNavigator;
 use crate::tui::handlers::navigator::tree::TreeNavigator;
 use crate::tui::models::state::{AppState, Panel};
 use color_eyre::Result;
@@ -6,12 +7,14 @@ use ratatui::widgets::ListState;
 
 pub struct KeyboardHandler {
     tree_navigator: TreeNavigator,
+    content_navigator: ContentNavigator,
 }
 
 impl KeyboardHandler {
     pub fn new() -> Self {
         Self {
             tree_navigator: TreeNavigator::new(),
+            content_navigator: ContentNavigator::new(),
         }
     }
 
@@ -28,14 +31,16 @@ impl KeyboardHandler {
             KeyCode::Tab => {
                 self.toggle_panel(app_state);
             }
-            _ => {
-                // For now, only handle tree navigation regardless of panel
-                // In the future, we can add content panel navigation
-                if app_state.current_panel == Panel::Nav {
+            _ => match app_state.current_panel {
+                Panel::Nav => {
                     self.tree_navigator
                         .handle_navigation(key_code, app_state, tree_state)?;
                 }
-            }
+                Panel::Content => {
+                    self.content_navigator
+                        .handle_navigation(key_code, app_state)?;
+                }
+            },
         }
         Ok(())
     }
