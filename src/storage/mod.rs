@@ -8,6 +8,7 @@ use std::{
 };
 use walkdir::WalkDir;
 
+#[derive(Clone)]
 pub struct Storage {
     base_path: PathBuf,
 }

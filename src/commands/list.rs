@@ -1,10 +1,11 @@
 use color_eyre::eyre::Result;
 
 use crate::storage::Storage;
+use crate::tui::app::launch_tui;
 
 pub fn execute(storage: &Storage, interactive: bool) -> Result<()> {
     if interactive {
-        println!("Listing in interactive mode");
+        launch_tui(storage)?;
     } else {
         display_list(storage)?;
     }
