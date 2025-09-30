@@ -3,7 +3,7 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, List, ListItem, ListState},
+    widgets::{Block, Borders, List, ListItem, ListState, Padding, Paragraph, Wrap},
     Frame,
 };
 
@@ -22,7 +22,7 @@ impl UIRenderer {
             .split(main_chunks[0]);
 
         Self::render_tree_panel(app_state, tree_state, f, content_chunks[0]);
-        Self::render_content_panel();
+        Self::render_content_panel(app_state, f, content_chunks[1]);
         Self::render_help_footer();
     }
 
@@ -63,7 +63,49 @@ impl UIRenderer {
         f.render_stateful_widget(list, area, tree_state);
     }
 
-    fn render_content_panel() {}
+    fn render_content_panel(app_state: &AppState, f: &mut Frame, area: Rect) {
+        let content_lines: Vec<Line> = app_state
+            .selected_entry_content
+            .lines()
+            .map(|line| Line::from(line.to_string()))
+            .collect();
+
+        // Calculate scrolling - account for borders and horizontal padding
+        let content_height = area.height.saturating_sub(2) as usize; // Account for borders
+        let total_lines = content_lines.len();
+        let scroll_offset = app_state.content_scroll as usize;
+        let visible_lines: Vec<Line> = content_lines
+            .into_iter()
+            .skip(scroll_offset)
+            .take(content_height)
+            .collect();
+
+        // Above - line content calculation logic
+
+        let paragraph = Paragraph::new(visible_lines)
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .padding(Padding::horizontal(1)) // Add horizontal padding
+                    .title(if total_lines > content_height {
+                        format!(
+                            "Content ({}/{} lines)",
+                            (scroll_offset + content_height).min(total_lines),
+                            total_lines
+                        )
+                    } else {
+                        "Content".to_string()
+                    })
+                    .border_style(if app_state.current_panel == Panel::Content {
+                        Style::default().fg(Color::Yellow)
+                    } else {
+                        Style::default()
+                    }),
+            )
+            .wrap(Wrap { trim: true });
+
+        f.render_widget(paragraph, area);
+    }
 
     fn render_help_footer() {}
 }
