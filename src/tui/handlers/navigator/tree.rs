@@ -3,7 +3,7 @@ use crossterm::event::KeyCode;
 use ratatui::widgets::ListState;
 
 use crate::{
-    storage::{self, Storage},
+    storage::Storage,
     tui::{
         models::{node::TreeNode, state::AppState},
         tree::flattener::TreeFlattener,

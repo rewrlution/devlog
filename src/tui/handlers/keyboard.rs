@@ -1,4 +1,4 @@
-use crate::storage::{self, Storage};
+use crate::storage::Storage;
 use crate::tui::handlers::navigator::content::ContentNavigator;
 use crate::tui::handlers::navigator::tree::TreeNavigator;
 use crate::tui::models::state::{AppState, Panel};

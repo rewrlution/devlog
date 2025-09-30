@@ -11,10 +11,10 @@ use ratatui::{init, widgets::ListState, DefaultTerminal};
 use crate::{
     storage::Storage,
     tui::{
+        components::renderer::UIRenderer,
         handlers::keyboard::KeyboardHandler,
         models::state::AppState,
         tree::{builder::TreeBuilder, flattener::TreeFlattener},
-        ui::UIRenderer,
     },
 };
 
