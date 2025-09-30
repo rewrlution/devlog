@@ -146,14 +146,17 @@ impl TreeNavigator {
                     match self.storage.load_entry(entry_id) {
                         Ok(entry) => {
                             app_state.selected_entry_content = entry.content;
+                            app_state.reset_content_scroll();
                         }
                         Err(_) => {
                             app_state.selected_entry_content = "Error loading entry".to_string();
+                            app_state.reset_content_scroll();
                         }
                     }
                 } else {
                     app_state.selected_entry_content =
                         "Select an entry to view its content".to_string();
+                    app_state.reset_content_scroll();
                 }
             }
         }

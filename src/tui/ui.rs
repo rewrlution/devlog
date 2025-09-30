@@ -88,11 +88,16 @@ impl UIRenderer {
                     .borders(Borders::ALL)
                     .padding(Padding::horizontal(1)) // Add horizontal padding
                     .title(if total_lines > content_height {
-                        format!(
-                            "Content ({}/{} lines)",
-                            (scroll_offset + content_height).min(total_lines),
-                            total_lines
-                        )
+                        // format!(
+                        //     "Content ({}/{} lines)",
+                        //     (scroll_offset + content_height).min(total_lines),
+                        //     total_lines
+                        // )
+                        println!(
+                            "total lines: {}, content height: {}",
+                            total_lines, content_height
+                        );
+                        "Long Content".to_string()
                     } else {
                         "Content".to_string()
                     })

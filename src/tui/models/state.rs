@@ -51,4 +51,8 @@ impl AppState {
             needs_redraw: false,
         }
     }
+
+    pub fn reset_content_scroll(&mut self) {
+        self.content_scroll = 0;
+    }
 }
