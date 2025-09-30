@@ -49,6 +49,12 @@ impl App {
 
     pub fn run(&mut self, terminal: &mut DefaultTerminal) -> Result<()> {
         loop {
+            // Clear terminal if a redraw is needed (e.g., after editor)
+            if self.app_state.needs_redraw {
+                terminal.clear()?;
+                self.app_state.needs_redraw = false;
+            }
+
             // Draw the UI
             terminal.draw(|f| UIRenderer::render(&self.app_state, &mut self.tree_state, f))?;
 
