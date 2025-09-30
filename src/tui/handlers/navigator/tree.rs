@@ -138,11 +138,14 @@ impl TreeNavigator {
         tree_state: &mut ListState,
     ) -> Result<()> {
         if let Some(selected) = tree_state.selected() {
-            if let Some((text, is_entry)) = app_state.flat_items.get(selected) {
+            if let Some((display_text, is_entry)) = app_state.flat_items.get(selected) {
                 if *is_entry {
-                    // This function is fragile, it depends on the visual text of the entry
-                    // The last 8 digits is the filename, which is YYYYMMDD
-                    let entry_id = &text[text.len() - 8..];
+                    // Extract entry ID from display text. Examples are:
+                    // "└─ 20250920" -> "20250920"
+                    // "├─ 20241231" -> "20241231"
+                    // "│   └─ 20250920" -> "20250920"
+                    let entry_id = &display_text[display_text.len() - 8..];
+
                     match self.storage.load_entry(entry_id) {
                         Ok(entry) => {
                             app_state.selected_entry_content = entry.content;
