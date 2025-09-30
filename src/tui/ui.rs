@@ -72,7 +72,6 @@ impl UIRenderer {
 
         // Calculate scrolling - account for borders and horizontal padding
         let content_height = area.height.saturating_sub(2) as usize; // Account for borders
-        let total_lines = content_lines.len();
         let scroll_offset = app_state.content_scroll as usize;
         let visible_lines: Vec<Line> = content_lines
             .into_iter()
@@ -87,20 +86,7 @@ impl UIRenderer {
                 Block::default()
                     .borders(Borders::ALL)
                     .padding(Padding::horizontal(1)) // Add horizontal padding
-                    .title(if total_lines > content_height {
-                        // format!(
-                        //     "Content ({}/{} lines)",
-                        //     (scroll_offset + content_height).min(total_lines),
-                        //     total_lines
-                        // )
-                        println!(
-                            "total lines: {}, content height: {}",
-                            total_lines, content_height
-                        );
-                        "Long Content".to_string()
-                    } else {
-                        "Content".to_string()
-                    })
+                    .title("Content")
                     .border_style(if app_state.current_panel == Panel::Content {
                         Style::default().fg(Color::Yellow)
                     } else {
