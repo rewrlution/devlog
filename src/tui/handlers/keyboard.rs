@@ -1,4 +1,4 @@
-use crate::tui::handlers::navigation::TreeNavigator;
+use crate::tui::handlers::navigator::tree::TreeNavigator;
 use crate::tui::models::state::{AppState, Panel};
 use color_eyre::Result;
 use crossterm::event::KeyCode;
