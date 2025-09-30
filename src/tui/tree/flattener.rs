@@ -1,7 +1,9 @@
 use crate::tui::models::node::TreeNode;
 
-/// Represents a flattened tree item with display text and entry status
-pub type FlatTreeItem = (String, bool);
+/// Represents a flattened tree item with node name, display text and entry status
+/// Node name could be (YYYY, MM, or YYYYMMDD)
+/// Display text is node name + file structure ascii art text
+pub type FlatTreeItem = (String, String, bool);
 
 pub struct TreeFlattener;
 
@@ -27,7 +29,7 @@ impl TreeFlattener {
     ) {
         let display_text = Self::build_display_text(node, prefix, is_last);
 
-        flat_items.push((display_text, node.is_entry));
+        flat_items.push((node.name.to_string(), display_text, node.is_entry));
 
         // Process children if node is expanded
         if node.is_expanded && !node.children.is_empty() {
@@ -101,7 +103,8 @@ mod tests {
         let result = TreeFlattener::flatten(&nodes);
 
         assert_eq!(result.len(), 1);
-        let (display_text, is_entry) = &result[0];
+        let (node_name, display_text, is_entry) = &result[0];
+        assert_eq!(node_name, "20250920");
         assert_eq!(display_text, "└─ 20250920");
         assert!(*is_entry);
     }
@@ -112,7 +115,8 @@ mod tests {
         let result = TreeFlattener::flatten(&nodes);
 
         assert_eq!(result.len(), 1);
-        let (display_text, is_entry) = &result[0];
+        let (node_name, display_text, is_entry) = &result[0];
+        assert_eq!(node_name, "2025");
         assert_eq!(display_text, "└─ [+] 2025");
         assert!(!*is_entry);
     }
@@ -123,7 +127,8 @@ mod tests {
         let result = TreeFlattener::flatten(&nodes);
 
         assert_eq!(result.len(), 1);
-        let (display_text, is_entry) = &result[0];
+        let (node_name, display_text, is_entry) = &result[0];
+        assert_eq!(node_name, "2025");
         assert_eq!(display_text, "└─ [-] 2025");
         assert!(!*is_entry);
     }
@@ -138,12 +143,12 @@ mod tests {
         let result = TreeFlattener::flatten(&nodes);
 
         assert_eq!(result.len(), 3);
-        assert_eq!(result[0].0, "├─ 20250920");
-        assert_eq!(result[1].0, "├─ 20250919");
-        assert_eq!(result[2].0, "└─ 20250918");
+        assert_eq!(result[0].1, "├─ 20250920");
+        assert_eq!(result[1].1, "├─ 20250919");
+        assert_eq!(result[2].1, "└─ 20250918");
 
         // All should be entries
-        for (_, is_entry) in &result {
+        for (_, _, is_entry) in &result {
             assert!(*is_entry);
         }
     }
@@ -155,14 +160,14 @@ mod tests {
         let result = TreeFlattener::flatten(&nodes);
 
         assert_eq!(result.len(), 3);
-        assert_eq!(result[0].0, "└─ [-] 09");
-        assert!(!result[0].1); // not an entry
+        assert_eq!(result[0].1, "└─ [-] 09");
+        assert!(!result[0].2); // not an entry
 
-        assert_eq!(result[1].0, "    ├─ 20250920");
-        assert!(result[1].1); // is an entry
+        assert_eq!(result[1].1, "    ├─ 20250920");
+        assert!(result[1].2); // is an entry
 
-        assert_eq!(result[2].0, "    └─ 20250919");
-        assert!(result[2].1); // is an entry
+        assert_eq!(result[2].1, "    └─ 20250919");
+        assert!(result[2].2); // is an entry
     }
 
     #[test]
@@ -173,8 +178,9 @@ mod tests {
 
         // Only the folder should be shown, children should be hidden
         assert_eq!(result.len(), 1);
-        assert_eq!(result[0].0, "└─ [+] 09");
-        assert!(!result[0].1);
+        assert_eq!(result[0].0, "09");
+        assert_eq!(result[0].1, "└─ [+] 09");
+        assert!(!result[0].2);
     }
 
     #[test]
@@ -191,23 +197,28 @@ mod tests {
         assert_eq!(result.len(), 5);
 
         // Year node
-        assert_eq!(result[0].0, "└─ [-] 2025");
-        assert!(!result[0].1);
+        assert_eq!(result[0].0, "2025");
+        assert_eq!(result[0].1, "└─ [-] 2025");
+        assert!(!result[0].2);
 
         // September (expanded)
-        assert_eq!(result[1].0, "    ├─ [-] 09");
-        assert!(!result[1].1);
+        assert_eq!(result[1].0, "09");
+        assert_eq!(result[1].1, "    ├─ [-] 09");
+        assert!(!result[1].2);
 
         // September entries
-        assert_eq!(result[2].0, "    │   ├─ 20250920");
-        assert!(result[2].1);
+        assert_eq!(result[2].0, "20250920");
+        assert_eq!(result[2].1, "    │   ├─ 20250920");
+        assert!(result[2].2);
 
-        assert_eq!(result[3].0, "    │   └─ 20250919");
-        assert!(result[3].1);
+        assert_eq!(result[3].0, "20250919");
+        assert_eq!(result[3].1, "    │   └─ 20250919");
+        assert!(result[3].2);
 
         // August (collapsed)
-        assert_eq!(result[4].0, "    └─ [+] 08");
-        assert!(!result[4].1);
+        assert_eq!(result[4].0, "08");
+        assert_eq!(result[4].1, "    └─ [+] 08");
+        assert!(!result[4].2);
     }
 
     #[test]
