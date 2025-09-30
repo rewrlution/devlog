@@ -1,5 +1,4 @@
 use crate::tui::models::state::AppState;
-use crate::tui::tree::flattener::FlatTreeItem;
 use crate::{storage::Storage, utils::editor};
 use color_eyre::Result;
 use crossterm::{
@@ -21,15 +20,16 @@ impl EditorHandler {
         Self { storage }
     }
 
-    pub fn editor_current_entry(
+    pub fn edit_current_entry(
         &self,
         app_state: &mut AppState,
         tree_state: &ListState,
-        flat_items: &[FlatTreeItem],
     ) -> Result<()> {
         if let Some(selected) = tree_state.selected() {
-            if let Some((text, is_entry)) = flat_items.get(selected) {
-                if *is_entry {
+            // Extract the needed values from the immutable borrow first
+            let entry_info = app_state.flat_items.get(selected).cloned();
+            if let Some((text, is_entry)) = entry_info {
+                if is_entry {
                     // Extract entry ID from display text. Examples are:
                     // "└─ 20250920" -> "20250920"
                     // "├─ 20241231" -> "20241231"

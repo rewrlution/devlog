@@ -1,4 +1,5 @@
 use crate::storage::Storage;
+use crate::tui::handlers::editor::EditorHandler;
 use crate::tui::handlers::navigator::content::ContentNavigator;
 use crate::tui::handlers::navigator::tree::TreeNavigator;
 use crate::tui::models::state::{AppState, Panel};
@@ -9,13 +10,15 @@ use ratatui::widgets::ListState;
 pub struct KeyboardHandler {
     tree_navigator: TreeNavigator,
     content_navigator: ContentNavigator,
+    editor: EditorHandler,
 }
 
 impl KeyboardHandler {
     pub fn new(storage: Storage) -> Self {
         Self {
-            tree_navigator: TreeNavigator::new(storage),
+            tree_navigator: TreeNavigator::new(storage.clone()),
             content_navigator: ContentNavigator::new(),
+            editor: EditorHandler::new(storage),
         }
     }
 
@@ -31,6 +34,11 @@ impl KeyboardHandler {
             }
             KeyCode::Tab => {
                 self.toggle_panel(app_state);
+            }
+            KeyCode::Char('e') => {
+                if app_state.current_panel == Panel::Content {
+                    self.editor.edit_current_entry(app_state, tree_state)?;
+                }
             }
             _ => match app_state.current_panel {
                 Panel::Nav => {
