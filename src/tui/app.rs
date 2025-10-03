@@ -2,7 +2,7 @@ use std::io;
 
 use color_eyre::Result;
 use crossterm::{
-    event::{self, Event},
+    event::{self, Event, KeyEventKind},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
@@ -60,11 +60,20 @@ impl App {
 
             // Handle events
             if let Event::Key(key) = event::read()? {
-                self.keyboard_handler.handle_key_event(
-                    key.code,
-                    &mut self.app_state,
-                    &mut self.tree_state,
-                )?;
+                // Only handle KeyPress events to avoid double-triggering on Windows
+                // Windows generate both KeyPress and KeyRelease events, while Unit-like systems
+                // typically only generate KeyPress events
+                // This means when a user press `Enter` on Windows:
+                // 1. `KeyPress` Enter event -> node expands
+                // 2. `KeyRelease` Enter event -> node collapse
+                // The result is that a node briefly expands then immediately collapses
+                if key.kind == KeyEventKind::Press {
+                    self.keyboard_handler.handle_key_event(
+                        key.code,
+                        &mut self.app_state,
+                        &mut self.tree_state,
+                    )?;
+                }
             }
 
             if self.app_state.should_quit {
