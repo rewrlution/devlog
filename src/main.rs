@@ -53,7 +53,7 @@ enum Commands {
 
 fn main() {
     let cli = Cli::parse();
-    let storage = Storage::new(None).unwrap_or_else(|e| {
+    let storage = Storage::new().unwrap_or_else(|e| {
         eprintln!("Failed to initialize storage: {}", e);
         std::process::exit(1);
     });

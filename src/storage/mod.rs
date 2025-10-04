@@ -21,27 +21,28 @@ pub struct Storage {
 }
 
 impl Storage {
-    /// Create a new Storage instance
-    pub fn new(base_dir: Option<&Path>) -> Result<Self> {
-        let (config_path, data_path, cache_path, state_path) = match base_dir {
-            Some(dir) => {
-                // Test mode: use provided directory structure
-                (
-                    dir.join("config"),
-                    dir.join("data").join("entries"),
-                    dir.join("cache"),
-                    dir.join("state"),
-                )
-            }
-            None => {
-                // Production: use XDG directories with fallbacks and migration
-                let config = Self::get_config_dir()?;
-                let data = Self::get_data_dir_with_migration()?;
-                let cache = Self::get_cache_dir()?;
-                let state = Self::get_state_dir()?;
-                (config, data, cache, state)
-            }
-        };
+    /// Create a new Storage instance using XDG directories
+    pub fn new() -> Result<Self> {
+        let config_path = Self::get_config_dir()?;
+        let data_path = Self::get_data_dir()?;
+        let cache_path = Self::get_cache_dir()?;
+        let state_path = Self::get_state_dir()?;
+
+        Ok(Self {
+            config_path,
+            data_path,
+            cache_path,
+            state_path,
+        })
+    }
+
+    /// Create a new Storage instance for testing with custom base directory
+    #[cfg(test)]
+    pub fn new_with_base_dir(base_dir: &Path) -> Result<Self> {
+        let config_path = base_dir.join("config");
+        let data_path = base_dir.join("data").join("entries");
+        let cache_path = base_dir.join("cache");
+        let state_path = base_dir.join("state");
 
         // Create all necessary directories
         for dir in [&config_path, &data_path, &cache_path, &state_path] {
@@ -59,7 +60,7 @@ impl Storage {
 
     /// Get XDG config directory with platform-specific fallbacks
     fn get_config_dir() -> Result<PathBuf> {
-        dirs::config_dir()
+        let config_dir = dirs::config_dir()
             .or_else(|| {
                 // Manual XDG fallback for Linux/Unix
                 if cfg!(target_os = "linux") || cfg!(target_os = "freebsd") {
@@ -78,37 +79,20 @@ impl Storage {
                 }
             })
             .map(|dir| dir.join("devlog"))
-            .ok_or_else(|| color_eyre::eyre::eyre!("Could not determine config directory"))
+            .ok_or_else(|| color_eyre::eyre::eyre!("Could not determine config directory"))?;
+
+        // Create directory if it doesn't exist
+        fs::create_dir_all(&config_dir)
+            .wrap_err_with(|| format!("Failed to create config directory: {}", config_dir.display()))?;
+
+        Ok(config_dir)
     }
 
-    /// Get XDG data directory with migration from legacy ~/.devlog
-    fn get_data_dir_with_migration() -> Result<PathBuf> {
-        let xdg_data_dir = Self::get_data_dir()?;
-        let legacy_dir = dirs::home_dir()
-            .ok_or_else(|| color_eyre::eyre::eyre!("Could not find home directory"))?
-            .join(".devlog")
-            .join("entries");
 
-        // If legacy directory exists and has entries, use it and warn user
-        if legacy_dir.exists() && Self::directory_has_entries(&legacy_dir)? {
-            eprintln!(
-                "Warning: Using legacy data directory: {}",
-                legacy_dir.display()
-            );
-            eprintln!(
-                "Consider migrating to XDG-compliant directory: {}",
-                xdg_data_dir.display()
-            );
-            eprintln!("Run 'devlog config migrate' to migrate your data");
-            Ok(legacy_dir)
-        } else {
-            Ok(xdg_data_dir)
-        }
-    }
 
     /// Get XDG data directory with platform-specific fallbacks
     fn get_data_dir() -> Result<PathBuf> {
-        dirs::data_dir()
+        let data_dir = dirs::data_dir()
             .or_else(|| {
                 // Manual XDG fallback
                 if cfg!(target_os = "linux") || cfg!(target_os = "freebsd") {
@@ -127,12 +111,18 @@ impl Storage {
                 }
             })
             .map(|dir| dir.join("devlog").join("entries"))
-            .ok_or_else(|| color_eyre::eyre::eyre!("Could not determine data directory"))
+            .ok_or_else(|| color_eyre::eyre::eyre!("Could not determine data directory"))?;
+
+        // Create directory if it doesn't exist
+        fs::create_dir_all(&data_dir)
+            .wrap_err_with(|| format!("Failed to create data directory: {}", data_dir.display()))?;
+
+        Ok(data_dir)
     }
 
     /// Get XDG cache directory with platform-specific fallbacks
     fn get_cache_dir() -> Result<PathBuf> {
-        dirs::cache_dir()
+        let cache_dir = dirs::cache_dir()
             .or_else(|| {
                 if cfg!(target_os = "linux") || cfg!(target_os = "freebsd") {
                     dirs::home_dir().map(|home| home.join(".cache"))
@@ -148,39 +138,44 @@ impl Storage {
                 }
             })
             .map(|dir| dir.join("devlog"))
-            .ok_or_else(|| color_eyre::eyre::eyre!("Could not determine cache directory"))
+            .ok_or_else(|| color_eyre::eyre::eyre!("Could not determine cache directory"))?;
+
+        // Create directory if it doesn't exist
+        fs::create_dir_all(&cache_dir)
+            .wrap_err_with(|| format!("Failed to create cache directory: {}", cache_dir.display()))?;
+
+        Ok(cache_dir)
     }
 
     /// Get XDG state directory with platform-specific fallbacks
     fn get_state_dir() -> Result<PathBuf> {
-        dirs::state_dir()
+        let state_dir = dirs::state_dir()
             .or_else(|| {
                 if cfg!(target_os = "linux") || cfg!(target_os = "freebsd") {
                     dirs::home_dir().map(|home| home.join(".local").join("state"))
                 } else {
-                    // macOS and Windows fall back to data directory
-                    Self::get_data_dir()
-                        .ok()
-                        .map(|data_dir| data_dir.parent().unwrap().to_path_buf())
+                    // macOS and Windows fall back to data directory parent
+                    dirs::data_dir()
+                        .or_else(|| {
+                            dirs::home_dir().map(|home| {
+                                if cfg!(target_os = "macos") {
+                                    home.join("Library").join("Application Support")
+                                } else {
+                                    // Windows
+                                    home.join("AppData").join("Roaming")
+                                }
+                            })
+                        })
                 }
             })
             .map(|dir| dir.join("devlog"))
-            .ok_or_else(|| color_eyre::eyre::eyre!("Could not determine state directory"))
-    }
+            .ok_or_else(|| color_eyre::eyre::eyre!("Could not determine state directory"))?;
 
-    /// Check if a directory contains any .md entry files
-    fn directory_has_entries(dir: &Path) -> Result<bool> {
-        if !dir.exists() {
-            return Ok(false);
-        }
+        // Create directory if it doesn't exist
+        fs::create_dir_all(&state_dir)
+            .wrap_err_with(|| format!("Failed to create state directory: {}", state_dir.display()))?;
 
-        let entries = WalkDir::new(dir)
-            .into_iter()
-            .filter_map(|e| e.ok())
-            .filter(|e| e.path().extension().is_some_and(|ext| ext == "md"))
-            .take(1); // Just check if at least one exists
-
-        Ok(entries.count() > 0)
+        Ok(state_dir)
     }
 
     /// Save an entry to disk
@@ -311,7 +306,7 @@ mod tests {
     /// Create a test storage instance in a temporary directory
     fn create_test_storage() -> (Storage, TempDir) {
         let temp_dir = TempDir::new().expect("Failed to create temp dir");
-        let storage = Storage::new(Some(temp_dir.path())).expect("Failed to create storage");
+        let storage = Storage::new_with_base_dir(temp_dir.path()).expect("Failed to create storage");
         (storage, temp_dir)
     }
 
@@ -464,23 +459,5 @@ mod tests {
         assert_eq!(storage.state_path(), temp_dir.path().join("state"));
     }
 
-    #[test]
-    fn test_directory_has_entries() {
-        let temp_dir = TempDir::new().expect("Failed to create temp dir");
-        let entries_dir = temp_dir.path().join("entries");
 
-        // Empty directory should return false
-        fs::create_dir_all(&entries_dir).unwrap();
-        assert!(!Storage::directory_has_entries(&entries_dir).unwrap());
-
-        // Directory with .md file should return true
-        fs::write(entries_dir.join("20250920.md"), "content").unwrap();
-        assert!(Storage::directory_has_entries(&entries_dir).unwrap());
-
-        // Directory with non-.md file should return false
-        let other_dir = temp_dir.path().join("other");
-        fs::create_dir_all(&other_dir).unwrap();
-        fs::write(other_dir.join("readme.txt"), "content").unwrap();
-        assert!(!Storage::directory_has_entries(&other_dir).unwrap());
-    }
 }
