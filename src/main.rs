@@ -1,8 +1,9 @@
 use clap::{Parser, Subcommand};
 
-use crate::storage::Storage;
+use crate::{commands::config::ConfigSubcommand, storage::Storage};
 
 mod commands;
+mod config;
 mod models;
 mod storage;
 mod tui;
@@ -43,12 +44,32 @@ enum Commands {
         #[arg(short, long)]
         interactive: bool,
     },
+    /// Configure DevLog settings
+    Config {
+        #[command(subcommand)]
+        subcmd: Option<ConfigSubcommand>,
+    },
 }
 
 fn main() {
+    // Initialize color-eyre for better error reporting
+    color_eyre::install().expect("Failed to install color-eyre");
+
     let cli = Cli::parse();
-    let storage = Storage::new(None).unwrap_or_else(|e| {
+
+    // Handle config command separately since it doesn't need storage
+    if let Commands::Config { subcmd } = cli.command {
+        if let Err(e) = commands::config::execute(subcmd) {
+            eprintln!("Configuration error: {}", e);
+            std::process::exit(1);
+        }
+        return;
+    }
+
+    // Initialize storage from configuration
+    let storage = Storage::from_config().unwrap_or_else(|e| {
         eprintln!("Failed to initialize storage: {}", e);
+        eprintln!("Try running 'devlog config' to set up your configuration.");
         std::process::exit(1);
     });
 
@@ -57,6 +78,7 @@ fn main() {
         Commands::Edit { id } => commands::edit::execute(&storage, id),
         Commands::Show { id } => commands::show::execute(&storage, id),
         Commands::List { interactive } => commands::list::execute(&storage, interactive),
+        Commands::Config { .. } => unreachable!(), // Already handled above
     } {
         eprintln!("Error: {}", e);
         std::process::exit(1);

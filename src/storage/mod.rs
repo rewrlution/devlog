@@ -1,4 +1,4 @@
-use crate::models::entry::Entry;
+use crate::{config::Config, models::entry::Entry};
 
 use chrono::Utc;
 use color_eyre::eyre::{Context, ContextCompat, Ok, Result};
@@ -14,11 +14,24 @@ pub struct Storage {
 }
 
 impl Storage {
-    /// Create a new Storage instance
+    /// Create a new Storage instance from configuration
+    pub fn from_config() -> Result<Self> {
+        let config = Config::load_or_create_default()
+            .wrap_err("Failed to load configuration")?;
+        
+        let expanded_path = config.expanded_base_path()
+            .wrap_err("Failed to expand base path")?;
+        
+        Self::new(Some(&expanded_path))
+    }
+
+    /// Create a new Storage instance with optional base directory
+    /// This method is kept for backward compatibility and testing
     pub fn new(base_dir: Option<&Path>) -> Result<Self> {
         let base_path = match base_dir {
             Some(dir) => dir.join("entries"),
             None => {
+                // Fallback to default if no config available
                 let home_dir = dirs::home_dir().wrap_err("Could not find home directory")?;
                 home_dir.join(".devlog").join("entries")
             }
