@@ -1,10 +1,13 @@
-use color_eyre::eyre::{Context, Ok, Result};
+use color_eyre::eyre::{Context, Result};
 use std::{
     fs,
     path::{Path, PathBuf},
 };
 
 pub mod entry;
+mod platform;
+
+use platform::{get_xdg_directory, XdgDirectoryType};
 
 #[derive(Clone)]
 pub struct Storage {
@@ -58,125 +61,22 @@ impl Storage {
 
     /// Get XDG config directory with platform-specific fallbacks
     fn get_config_dir() -> Result<PathBuf> {
-        let config_dir = dirs::config_dir()
-            .or_else(|| {
-                // Manual XDG fallback for Linux/Unix
-                if cfg!(target_os = "linux") || cfg!(target_os = "freebsd") {
-                    dirs::home_dir().map(|home| home.join(".config"))
-                } else if cfg!(target_os = "macos") {
-                    dirs::home_dir().map(|home| home.join("Library").join("Application Support"))
-                } else if cfg!(target_os = "windows") {
-                    std::env::var("APPDATA")
-                        .ok()
-                        .map(PathBuf::from)
-                        .or_else(|| {
-                            dirs::home_dir().map(|home| home.join("AppData").join("Roaming"))
-                        })
-                } else {
-                    dirs::home_dir().map(|home| home.join(".config"))
-                }
-            })
-            .map(|dir| dir.join("devlog"))
-            .ok_or_else(|| color_eyre::eyre::eyre!("Could not determine config directory"))?;
-
-        // Create directory if it doesn't exist
-        fs::create_dir_all(&config_dir).wrap_err_with(|| {
-            format!(
-                "Failed to create config directory: {}",
-                config_dir.display()
-            )
-        })?;
-
-        Ok(config_dir)
+        get_xdg_directory(XdgDirectoryType::Config, "devlog", dirs::config_dir)
     }
 
     /// Get XDG data directory with platform-specific fallbacks
     fn get_data_dir() -> Result<PathBuf> {
-        let data_dir = dirs::data_dir()
-            .or_else(|| {
-                // Manual XDG fallback
-                if cfg!(target_os = "linux") || cfg!(target_os = "freebsd") {
-                    dirs::home_dir().map(|home| home.join(".local").join("share"))
-                } else if cfg!(target_os = "macos") {
-                    dirs::home_dir().map(|home| home.join("Library").join("Application Support"))
-                } else if cfg!(target_os = "windows") {
-                    std::env::var("APPDATA")
-                        .ok()
-                        .map(PathBuf::from)
-                        .or_else(|| {
-                            dirs::home_dir().map(|home| home.join("AppData").join("Roaming"))
-                        })
-                } else {
-                    dirs::home_dir().map(|home| home.join(".local").join("share"))
-                }
-            })
-            .map(|dir| dir.join("devlog"))
-            .ok_or_else(|| color_eyre::eyre::eyre!("Could not determine data directory"))?;
-
-        // Create directory if it doesn't exist
-        fs::create_dir_all(&data_dir)
-            .wrap_err_with(|| format!("Failed to create data directory: {}", data_dir.display()))?;
-
-        Ok(data_dir)
+        get_xdg_directory(XdgDirectoryType::Data, "devlog", dirs::data_dir)
     }
 
     /// Get XDG cache directory with platform-specific fallbacks
     fn get_cache_dir() -> Result<PathBuf> {
-        let cache_dir = dirs::cache_dir()
-            .or_else(|| {
-                if cfg!(target_os = "linux") || cfg!(target_os = "freebsd") {
-                    dirs::home_dir().map(|home| home.join(".cache"))
-                } else if cfg!(target_os = "macos") {
-                    dirs::home_dir().map(|home| home.join("Library").join("Caches"))
-                } else if cfg!(target_os = "windows") {
-                    std::env::var("LOCALAPPDATA")
-                        .ok()
-                        .map(PathBuf::from)
-                        .or_else(|| dirs::home_dir().map(|home| home.join("AppData").join("Local")))
-                } else {
-                    dirs::home_dir().map(|home| home.join(".cache"))
-                }
-            })
-            .map(|dir| dir.join("devlog"))
-            .ok_or_else(|| color_eyre::eyre::eyre!("Could not determine cache directory"))?;
-
-        // Create directory if it doesn't exist
-        fs::create_dir_all(&cache_dir).wrap_err_with(|| {
-            format!("Failed to create cache directory: {}", cache_dir.display())
-        })?;
-
-        Ok(cache_dir)
+        get_xdg_directory(XdgDirectoryType::Cache, "devlog", dirs::cache_dir)
     }
 
     /// Get XDG state directory with platform-specific fallbacks
     fn get_state_dir() -> Result<PathBuf> {
-        let state_dir = dirs::state_dir()
-            .or_else(|| {
-                if cfg!(target_os = "linux") || cfg!(target_os = "freebsd") {
-                    dirs::home_dir().map(|home| home.join(".local").join("state"))
-                } else {
-                    // macOS and Windows fall back to data directory parent
-                    dirs::data_dir().or_else(|| {
-                        dirs::home_dir().map(|home| {
-                            if cfg!(target_os = "macos") {
-                                home.join("Library").join("Application Support")
-                            } else {
-                                // Windows
-                                home.join("AppData").join("Roaming")
-                            }
-                        })
-                    })
-                }
-            })
-            .map(|dir| dir.join("devlog"))
-            .ok_or_else(|| color_eyre::eyre::eyre!("Could not determine state directory"))?;
-
-        // Create directory if it doesn't exist
-        fs::create_dir_all(&state_dir).wrap_err_with(|| {
-            format!("Failed to create state directory: {}", state_dir.display())
-        })?;
-
-        Ok(state_dir)
+        get_xdg_directory(XdgDirectoryType::State, "devlog", dirs::state_dir)
     }
 
     /// Get the data directory path (where entries are stored)
