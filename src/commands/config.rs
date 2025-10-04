@@ -5,10 +5,10 @@ use color_eyre::Result;
 pub enum ConfigSubcommand {
     /// Set base path for dev logs
     Path,
-    /// Configure storage provider
-    Storage {
-        /// Storage provider (local, azure)
-        provider: String,
+    /// Configure cloud sync provider
+    Sync {
+        /// Cloud sync provider (azure, aws, gcp)
+        provider: Option<String>,
     },
     /// Open config file in editor
     Edit,
@@ -22,8 +22,8 @@ pub fn execute(subcmd: Option<ConfigSubcommand>) -> Result<()> {
     match subcmd {
         None => interactive::run_interactive_config(),
         Some(ConfigSubcommand::Path) => interactive::configure_path(),
-        Some(ConfigSubcommand::Storage { provider }) => {
-            interactive::configure_storage_provider(&provider)
+        Some(ConfigSubcommand::Sync { provider }) => {
+            interactive::configure_sync_provider(provider.as_deref())
         }
         Some(ConfigSubcommand::Edit) => interactive::edit_config(),
         Some(ConfigSubcommand::Show) => interactive::show_config(),

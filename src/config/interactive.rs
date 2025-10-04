@@ -1,7 +1,7 @@
 use super::{
     defaults::{validate_base_path, validate_container_name, DEFAULT_AZURE_CONTAINER, DEFAULT_BASE_PATH},
     providers::azure::AzureConfig,
-    Config, StorageConfig, StorageProvider,
+    Config, SyncConfig, SyncProvider,
 };
 use crate::utils::editor::find_available_editor;
 use color_eyre::eyre::{Context, Result};
@@ -20,8 +20,8 @@ pub fn run_interactive_config() -> Result<()> {
     // Configure base path
     config.base_path = configure_base_path(&config.base_path)?;
     
-    // Configure storage
-    config.storage = configure_storage(&config.storage)?;
+    // Configure sync
+    config.sync = configure_sync(&config.sync)?;
     
     // Save configuration
     config.save().wrap_err("Failed to save configuration")?;
@@ -52,31 +52,42 @@ pub fn configure_path() -> Result<()> {
     Ok(())
 }
 
-pub fn configure_storage_provider(provider: &str) -> Result<()> {
+pub fn configure_sync_provider(provider: Option<&str>) -> Result<()> {
     let mut config = Config::load_or_create_default()?;
     
-    match provider.to_lowercase().as_str() {
-        "azure" => {
-            println!("{}", style("Configuring Azure Blob Storage...").bold());
-            config.storage = configure_azure_storage()?;
+    match provider {
+        Some(provider_name) => {
+            match provider_name.to_lowercase().as_str() {
+                "azure" => {
+                    println!("{}", style("Configuring Azure Blob Storage...").bold());
+                    config.sync = Some(configure_azure_sync()?);
+                }
+                "aws" => {
+                    return Err(color_eyre::eyre::eyre!(
+                        "AWS sync is not yet supported. Currently supported: azure"
+                    ));
+                }
+                "gcp" => {
+                    return Err(color_eyre::eyre::eyre!(
+                        "Google Cloud sync is not yet supported. Currently supported: azure"
+                    ));
+                }
+                _ => {
+                    return Err(color_eyre::eyre::eyre!(
+                        "Unsupported sync provider: {}. Supported providers: azure (aws, gcp coming soon)",
+                        provider_name
+                    ));
+                }
+            }
         }
-        "local" => {
-            config.storage = StorageConfig {
-                provider: StorageProvider::Local,
-                azure: None,
-            };
-            println!("{}", style("✓ Storage provider set to local").green());
-        }
-        _ => {
-            return Err(color_eyre::eyre::eyre!(
-                "Unsupported storage provider: {}. Supported providers: local, azure",
-                provider
-            ));
+        None => {
+            // Interactive mode - let user choose from available providers
+            config.sync = configure_sync_interactive()?;
         }
     }
     
     config.save()?;
-    println!("{}", style("✓ Storage configuration updated!").green());
+    println!("{}", style("✓ Sync configuration updated!").green());
     Ok(())
 }
 
@@ -86,15 +97,25 @@ pub fn show_config() -> Result<()> {
     println!("{}", style("DevLog Configuration:").bold().underlined());
     println!("  {}: {}", style("Base path").bold(), config.base_path.display());
     
-    match config.storage.provider {
-        StorageProvider::Local => {
-            println!("  {}: {}", style("Storage").bold(), "Local filesystem");
+    match &config.sync {
+        None => {
+            println!("  {}: {}", style("Cloud Sync").bold(), style("Disabled").dim());
         }
-        StorageProvider::Azure => {
-            println!("  {}: {}", style("Storage").bold(), "Azure Blob Storage");
-            if let Some(azure_config) = &config.storage.azure {
-                println!("    {}: {}", style("Container").dim(), azure_config.container_name);
-                println!("    {}: {}", style("Status").dim(), style("✓ Configured").green());
+        Some(sync_config) => {
+            match sync_config.provider {
+                SyncProvider::Azure => {
+                    println!("  {}: {}", style("Cloud Sync").bold(), "Azure Blob Storage");
+                    if let Some(azure_config) = &sync_config.azure {
+                        println!("    {}: {}", style("Container").dim(), azure_config.container_name);
+                        println!("    {}: {}", style("Status").dim(), style("✓ Configured").green());
+                    }
+                }
+                SyncProvider::Aws => {
+                    println!("  {}: {}", style("Cloud Sync").bold(), "AWS S3 (not yet supported)");
+                }
+                SyncProvider::Gcp => {
+                    println!("  {}: {}", style("Cloud Sync").bold(), "Google Cloud Storage (not yet supported)");
+                }
             }
         }
     }
@@ -190,22 +211,31 @@ fn configure_base_path(current_path: &PathBuf) -> Result<PathBuf> {
     }
 }
 
-fn configure_storage(current_storage: &StorageConfig) -> Result<StorageConfig> {
+fn configure_sync(current_sync: &Option<SyncConfig>) -> Result<Option<SyncConfig>> {
     let enable_cloud = Confirm::new()
-        .with_prompt("Enable cloud storage?")
-        .default(matches!(current_storage.provider, StorageProvider::Azure))
+        .with_prompt("Enable cloud sync?")
+        .default(current_sync.is_some())
         .interact()?;
     
     if !enable_cloud {
-        println!("{} Storage set to: {}", style("✓").green(), style("Local filesystem").cyan());
-        return Ok(StorageConfig {
-            provider: StorageProvider::Local,
-            azure: None,
-        });
+        println!("{} Cloud sync: {}", style("✓").green(), style("Disabled").cyan());
+        return Ok(None);
     }
     
-    // For now, only Azure is supported
-    let providers = vec!["Azure Blob Storage"];
+    configure_sync_interactive()
+}
+
+fn configure_sync_interactive() -> Result<Option<SyncConfig>> {
+    // Show available providers with support status
+    let providers = vec![
+        "Azure Blob Storage (supported)",
+        "AWS S3 (coming soon)",
+        "Google Cloud Storage (coming soon)"
+    ];
+    
+    println!();
+    println!("{}", style("Available cloud sync providers:").bold());
+    
     let selection = Select::new()
         .with_prompt("Select cloud provider")
         .items(&providers)
@@ -213,12 +243,20 @@ fn configure_storage(current_storage: &StorageConfig) -> Result<StorageConfig> {
         .interact()?;
     
     match selection {
-        0 => configure_azure_storage(),
+        0 => Ok(Some(configure_azure_sync()?)),
+        1 => {
+            println!("{}", style("AWS S3 support is coming soon!").yellow());
+            Err(color_eyre::eyre::eyre!("AWS S3 is not yet supported"))
+        }
+        2 => {
+            println!("{}", style("Google Cloud Storage support is coming soon!").yellow());
+            Err(color_eyre::eyre::eyre!("Google Cloud Storage is not yet supported"))
+        }
         _ => unreachable!(),
     }
 }
 
-fn configure_azure_storage() -> Result<StorageConfig> {
+fn configure_azure_sync() -> Result<SyncConfig> {
     println!();
     println!("{}", style("Azure Blob Storage Configuration:").bold());
     
@@ -248,10 +286,10 @@ fn configure_azure_storage() -> Result<StorageConfig> {
                     continue;
                 }
                 
-                println!("{} Azure storage configured", style("✓").green());
+                println!("{} Azure sync configured", style("✓").green());
                 
-                return Ok(StorageConfig {
-                    provider: StorageProvider::Azure,
+                return Ok(SyncConfig {
+                    provider: SyncProvider::Azure,
                     azure: Some(azure_config),
                 });
             }
