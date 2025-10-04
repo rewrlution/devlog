@@ -1,7 +1,7 @@
 use crate::models::entry::Entry;
 
 use chrono::Utc;
-use color_eyre::eyre::{Context, ContextCompat, Ok, Result};
+use color_eyre::eyre::{Context, Ok, Result};
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -10,34 +10,182 @@ use walkdir::WalkDir;
 
 #[derive(Clone)]
 pub struct Storage {
-    base_path: PathBuf,
+    /// Path for application data (entries, events, etc.)
+    data_path: PathBuf,
+    /// Path for configuration files
+    config_path: PathBuf,
+    /// Path for cache files
+    cache_path: PathBuf,
+    /// Path for state files (logs, history)
+    state_path: PathBuf,
 }
 
 impl Storage {
     /// Create a new Storage instance
     pub fn new(base_dir: Option<&Path>) -> Result<Self> {
-        let base_path = match base_dir {
-            Some(dir) => dir.join("entries"),
+        let (config_path, data_path, cache_path, state_path) = match base_dir {
+            Some(dir) => {
+                // Test mode: use provided directory structure
+                (
+                    dir.join("config"),
+                    dir.join("data").join("entries"),
+                    dir.join("cache"),
+                    dir.join("state"),
+                )
+            }
             None => {
-                let home_dir = dirs::home_dir().wrap_err("Could not find home directory")?;
-                home_dir.join(".devlog").join("entries")
+                // Production: use XDG directories with fallbacks and migration
+                let config = Self::get_config_dir()?;
+                let data = Self::get_data_dir_with_migration()?;
+                let cache = Self::get_cache_dir()?;
+                let state = Self::get_state_dir()?;
+                (config, data, cache, state)
             }
         };
 
-        // Create directory if it doesn't exist
-        fs::create_dir_all(&base_path).wrap_err_with(|| {
-            format!(
-                "Failed to create storage directory: {}",
-                base_path.display()
-            )
-        })?;
+        // Create all necessary directories
+        for dir in [&config_path, &data_path, &cache_path, &state_path] {
+            fs::create_dir_all(dir)
+                .wrap_err_with(|| format!("Failed to create directory: {}", dir.display()))?;
+        }
 
-        Ok(Self { base_path })
+        Ok(Self {
+            config_path,
+            data_path,
+            cache_path,
+            state_path,
+        })
+    }
+
+    /// Get XDG config directory with platform-specific fallbacks
+    fn get_config_dir() -> Result<PathBuf> {
+        dirs::config_dir()
+            .or_else(|| {
+                // Manual XDG fallback for Linux/Unix
+                if cfg!(target_os = "linux") || cfg!(target_os = "freebsd") {
+                    dirs::home_dir().map(|home| home.join(".config"))
+                } else if cfg!(target_os = "macos") {
+                    dirs::home_dir().map(|home| home.join("Library").join("Application Support"))
+                } else if cfg!(target_os = "windows") {
+                    std::env::var("APPDATA")
+                        .ok()
+                        .map(PathBuf::from)
+                        .or_else(|| {
+                            dirs::home_dir().map(|home| home.join("AppData").join("Roaming"))
+                        })
+                } else {
+                    dirs::home_dir().map(|home| home.join(".config"))
+                }
+            })
+            .map(|dir| dir.join("devlog"))
+            .ok_or_else(|| color_eyre::eyre::eyre!("Could not determine config directory"))
+    }
+
+    /// Get XDG data directory with migration from legacy ~/.devlog
+    fn get_data_dir_with_migration() -> Result<PathBuf> {
+        let xdg_data_dir = Self::get_data_dir()?;
+        let legacy_dir = dirs::home_dir()
+            .ok_or_else(|| color_eyre::eyre::eyre!("Could not find home directory"))?
+            .join(".devlog")
+            .join("entries");
+
+        // If legacy directory exists and has entries, use it and warn user
+        if legacy_dir.exists() && Self::directory_has_entries(&legacy_dir)? {
+            eprintln!(
+                "Warning: Using legacy data directory: {}",
+                legacy_dir.display()
+            );
+            eprintln!(
+                "Consider migrating to XDG-compliant directory: {}",
+                xdg_data_dir.display()
+            );
+            eprintln!("Run 'devlog config migrate' to migrate your data");
+            Ok(legacy_dir)
+        } else {
+            Ok(xdg_data_dir)
+        }
+    }
+
+    /// Get XDG data directory with platform-specific fallbacks
+    fn get_data_dir() -> Result<PathBuf> {
+        dirs::data_dir()
+            .or_else(|| {
+                // Manual XDG fallback
+                if cfg!(target_os = "linux") || cfg!(target_os = "freebsd") {
+                    dirs::home_dir().map(|home| home.join(".local").join("share"))
+                } else if cfg!(target_os = "macos") {
+                    dirs::home_dir().map(|home| home.join("Library").join("Application Support"))
+                } else if cfg!(target_os = "windows") {
+                    std::env::var("APPDATA")
+                        .ok()
+                        .map(PathBuf::from)
+                        .or_else(|| {
+                            dirs::home_dir().map(|home| home.join("AppData").join("Roaming"))
+                        })
+                } else {
+                    dirs::home_dir().map(|home| home.join(".local").join("share"))
+                }
+            })
+            .map(|dir| dir.join("devlog").join("entries"))
+            .ok_or_else(|| color_eyre::eyre::eyre!("Could not determine data directory"))
+    }
+
+    /// Get XDG cache directory with platform-specific fallbacks
+    fn get_cache_dir() -> Result<PathBuf> {
+        dirs::cache_dir()
+            .or_else(|| {
+                if cfg!(target_os = "linux") || cfg!(target_os = "freebsd") {
+                    dirs::home_dir().map(|home| home.join(".cache"))
+                } else if cfg!(target_os = "macos") {
+                    dirs::home_dir().map(|home| home.join("Library").join("Caches"))
+                } else if cfg!(target_os = "windows") {
+                    std::env::var("LOCALAPPDATA")
+                        .ok()
+                        .map(PathBuf::from)
+                        .or_else(|| dirs::home_dir().map(|home| home.join("AppData").join("Local")))
+                } else {
+                    dirs::home_dir().map(|home| home.join(".cache"))
+                }
+            })
+            .map(|dir| dir.join("devlog"))
+            .ok_or_else(|| color_eyre::eyre::eyre!("Could not determine cache directory"))
+    }
+
+    /// Get XDG state directory with platform-specific fallbacks
+    fn get_state_dir() -> Result<PathBuf> {
+        dirs::state_dir()
+            .or_else(|| {
+                if cfg!(target_os = "linux") || cfg!(target_os = "freebsd") {
+                    dirs::home_dir().map(|home| home.join(".local").join("state"))
+                } else {
+                    // macOS and Windows fall back to data directory
+                    Self::get_data_dir()
+                        .ok()
+                        .map(|data_dir| data_dir.parent().unwrap().to_path_buf())
+                }
+            })
+            .map(|dir| dir.join("devlog"))
+            .ok_or_else(|| color_eyre::eyre::eyre!("Could not determine state directory"))
+    }
+
+    /// Check if a directory contains any .md entry files
+    fn directory_has_entries(dir: &Path) -> Result<bool> {
+        if !dir.exists() {
+            return Ok(false);
+        }
+
+        let entries = WalkDir::new(dir)
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.path().extension().is_some_and(|ext| ext == "md"))
+            .take(1); // Just check if at least one exists
+
+        Ok(entries.count() > 0)
     }
 
     /// Save an entry to disk
     pub fn save_entry(&self, entry: &Entry) -> Result<()> {
-        let file_path = self.base_path.join(format!("{}.md", entry.id));
+        let file_path = self.data_path.join(format!("{}.md", entry.id));
         let content = self.serialize_entry(entry)?;
 
         fs::write(&file_path, content)
@@ -47,7 +195,7 @@ impl Storage {
 
     /// Load an entry from disk
     pub fn load_entry(&self, id: &str) -> Result<Entry> {
-        let file_path = self.base_path.join(format!("{}.md", id));
+        let file_path = self.data_path.join(format!("{}.md", id));
         let content = fs::read_to_string(&file_path)
             .wrap_err_with(|| format!("Failed to read entry from {}", file_path.display()))?;
 
@@ -58,7 +206,7 @@ impl Storage {
     pub fn list_entries(&self) -> Result<Vec<String>> {
         let mut entries = Vec::new();
 
-        let md_files = WalkDir::new(&self.base_path)
+        let md_files = WalkDir::new(&self.data_path)
             .into_iter()
             .filter_map(|e| e.ok())
             .filter(|e| e.path().extension().is_some_and(|ext| ext == "md"));
@@ -74,6 +222,26 @@ impl Storage {
         // Sort by date (newest first)
         entries.sort_by(|a, b| b.cmp(a));
         Ok(entries)
+    }
+
+    /// Get the data directory path (where entries are stored)
+    pub fn data_path(&self) -> &Path {
+        &self.data_path
+    }
+
+    /// Get the config directory path
+    pub fn config_path(&self) -> &Path {
+        &self.config_path
+    }
+
+    /// Get the cache directory path
+    pub fn cache_path(&self) -> &Path {
+        &self.cache_path
+    }
+
+    /// Get the state directory path
+    pub fn state_path(&self) -> &Path {
+        &self.state_path
     }
 
     /// Serialize entry to markdown with YAML frontmatter
@@ -181,7 +349,11 @@ mod tests {
             .save_entry(&entry)
             .expect("Failed to save the entry");
 
-        let path = temp_dir.path().join("entries").join("20250920.md");
+        let path = temp_dir
+            .path()
+            .join("data")
+            .join("entries")
+            .join("20250920.md");
         assert!(path.exists());
     }
 
@@ -200,7 +372,7 @@ mod tests {
         storage.save_entry(&entry3).expect("Failed to save entry3");
 
         // Create a non-markdown file that should be ignored
-        let entries_dir = temp_dir.path().join("entries");
+        let entries_dir = temp_dir.path().join("data").join("entries");
         std::fs::write(entries_dir.join("readme.txt"), "This should be ignored").unwrap();
 
         // List entries
@@ -270,5 +442,45 @@ mod tests {
 
         assert_eq!(deserialized.id, original_entry.id);
         assert_eq!(deserialized.content, original_entry.content);
+    }
+
+    #[test]
+    fn test_xdg_directory_structure() {
+        let (storage, temp_dir) = create_test_storage();
+
+        // Verify that all XDG directories are created
+        assert!(temp_dir.path().join("config").exists());
+        assert!(temp_dir.path().join("data").join("entries").exists());
+        assert!(temp_dir.path().join("cache").exists());
+        assert!(temp_dir.path().join("state").exists());
+
+        // Verify that the storage has the correct paths
+        assert_eq!(storage.config_path(), temp_dir.path().join("config"));
+        assert_eq!(
+            storage.data_path(),
+            temp_dir.path().join("data").join("entries")
+        );
+        assert_eq!(storage.cache_path(), temp_dir.path().join("cache"));
+        assert_eq!(storage.state_path(), temp_dir.path().join("state"));
+    }
+
+    #[test]
+    fn test_directory_has_entries() {
+        let temp_dir = TempDir::new().expect("Failed to create temp dir");
+        let entries_dir = temp_dir.path().join("entries");
+
+        // Empty directory should return false
+        fs::create_dir_all(&entries_dir).unwrap();
+        assert!(!Storage::directory_has_entries(&entries_dir).unwrap());
+
+        // Directory with .md file should return true
+        fs::write(entries_dir.join("20250920.md"), "content").unwrap();
+        assert!(Storage::directory_has_entries(&entries_dir).unwrap());
+
+        // Directory with non-.md file should return false
+        let other_dir = temp_dir.path().join("other");
+        fs::create_dir_all(&other_dir).unwrap();
+        fs::write(other_dir.join("readme.txt"), "content").unwrap();
+        assert!(!Storage::directory_has_entries(&other_dir).unwrap());
     }
 }
