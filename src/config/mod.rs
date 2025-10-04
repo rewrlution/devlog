@@ -12,23 +12,16 @@ use std::{
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     pub base_path: PathBuf,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub sync: Option<SyncConfig>,
+    pub sync: SyncConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SyncConfig {
-    pub provider: SyncProvider,
+    pub enabled: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub azure: Option<providers::azure::AzureConfig>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum SyncProvider {
-    Azure,
-    Aws,
-    Gcp,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub aws: Option<providers::aws::AwsConfig>,
 }
 
 impl Config {
@@ -111,7 +104,11 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             base_path: PathBuf::from("~/.devlog"),
-            sync: None,
+            sync: SyncConfig {
+                enabled: false,
+                azure: None,
+                aws: None,
+            },
         }
     }
 }
@@ -126,18 +123,22 @@ mod tests {
         let toml_str = toml::to_string_pretty(&config).unwrap();
         
         assert!(toml_str.contains("base_path"));
-        assert!(toml_str.contains("provider = \"local\""));
+        assert!(toml_str.contains("enabled = false"));
+        assert!(toml_str.contains("[sync]"));
     }
 
     #[test]
     fn test_config_deserialization() {
         let toml_str = r#"
         base_path = "~/.devlog"
+        
+        [sync]
+        enabled = false
         "#;
         
         let config: Config = toml::from_str(toml_str).unwrap();
         assert_eq!(config.base_path, PathBuf::from("~/.devlog"));
-        assert!(config.sync.is_none());
+        assert!(!config.sync.enabled);
     }
 
     #[test]
