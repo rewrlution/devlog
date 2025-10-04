@@ -3,6 +3,7 @@ use clap::{Parser, Subcommand};
 use crate::{commands::config::ConfigSubcommand, storage::Storage};
 
 mod commands;
+mod config;
 mod models;
 mod storage;
 mod tui;
