@@ -44,8 +44,18 @@ pub fn launch_editor(existing_content: Option<&str>) -> Result<String> {
 }
 
 /// Find the first available editor
-fn find_available_editor() -> String {
-    let editors = ["vi", "nano"];
+pub fn find_available_editor() -> String {
+    // First try environment variables
+    if let Ok(editor) = std::env::var("EDITOR") {
+        return editor;
+    }
+    
+    if let Ok(editor) = std::env::var("VISUAL") {
+        return editor;
+    }
+    
+    // Try common editors in order of preference for all platforms
+    let editors = ["vi", "vim", "nano", "code"];
 
     for editor in editors {
         if process::Command::new(editor)
@@ -57,8 +67,12 @@ fn find_available_editor() -> String {
         }
     }
 
-    // Fallback to vi (should be available on most unix system)
-    "vi".to_string()
+    // Fallback based on platform
+    if cfg!(windows) {
+        "notepad".to_string()
+    } else {
+        "vi".to_string()
+    }
 }
 
 /// Get the initial template for new entries

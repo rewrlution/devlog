@@ -3,6 +3,7 @@ use super::{
     providers::azure::AzureConfig,
     Config, StorageConfig, StorageProvider,
 };
+use crate::utils::editor::find_available_editor;
 use color_eyre::eyre::{Context, Result};
 use console::style;
 use dialoguer::{Confirm, Input, Select};
@@ -132,16 +133,8 @@ pub fn edit_config() -> Result<()> {
         config.save()?;
     }
     
-    // Try to determine the user's preferred editor
-    let editor = std::env::var("EDITOR")
-        .or_else(|_| std::env::var("VISUAL"))
-        .unwrap_or_else(|_| {
-            if cfg!(windows) {
-                "notepad".to_string()
-            } else {
-                "nano".to_string()
-            }
-        });
+    // Use the same editor finding strategy as the main editor utility
+    let editor = find_available_editor();
     
     println!(
         "Opening config file with {}: {}",
