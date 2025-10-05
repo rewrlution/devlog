@@ -41,7 +41,7 @@ impl Storage {
     #[cfg(test)]
     pub fn new_with_base_dir(base_dir: &Path) -> Result<Self> {
         let config_path = base_dir.join("config");
-        let data_path = base_dir.join("data"); // No 'entries' subdirectory here
+        let data_path = base_dir.join("data");
         let cache_path = base_dir.join("cache");
         let state_path = base_dir.join("state");
 

@@ -158,41 +158,107 @@ mod tests {
     }
 
     #[test]
-    fn test_platform_fallback_directories() {
-        // Test that fallback directories are returned for each platform/type combination
-        let dir_types = [
-            XdgDirectoryType::Config,
-            XdgDirectoryType::Data,
-            XdgDirectoryType::Cache,
-            XdgDirectoryType::State,
+    #[cfg(target_os = "windows")]
+    fn test_windows_directory_paths() {
+        // Test get_xdg_directory with devlog app name on Windows
+        let test_cases = [
+            (XdgDirectoryType::Config, "AppData\\Roaming\\devlog", "Windows config directory"),
+            (XdgDirectoryType::Data, "AppData\\Roaming\\devlog", "Windows data directory"),
+            (XdgDirectoryType::Cache, "AppData\\Local\\devlog", "Windows cache directory"),
+            (XdgDirectoryType::State, "AppData\\Roaming\\devlog", "Windows state directory"),
         ];
 
-        for dir_type in dir_types {
-            let fallback = get_platform_fallback_dir(dir_type);
-            // Should return Some path on all platforms
+        for (dir_type, expected_suffix, description) in test_cases {
+            // Test fallback behavior by passing None as dirs_fn
+            let actual_path = get_xdg_directory(dir_type, "devlog", || None)
+                .expect(&format!("Should get {} path", description));
+            
+            let path_str = actual_path.to_string_lossy();
+            
             assert!(
-                fallback.is_some(),
-                "Fallback should exist for {:?}",
-                dir_type
+                path_str.ends_with(expected_suffix),
+                "{} should end with '{}', got: '{}'",
+                description, expected_suffix, path_str
             );
+            
+            assert!(
+                actual_path.exists(),
+                "{} should be created and exist",
+                description
+            );
+            
+            // Clean up test directory
+            let _ = std::fs::remove_dir_all(&actual_path);
         }
     }
 
     #[test]
-    fn test_xdg_directory_creation() {
-        use tempfile::TempDir;
+    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd", target_os = "netbsd"))]
+    fn test_unix_directory_paths() {
+        // Test get_xdg_directory with devlog app name on Unix
+        let test_cases = [
+            (XdgDirectoryType::Config, ".config/devlog", "Unix config directory"),
+            (XdgDirectoryType::Data, ".local/share/devlog", "Unix data directory"),
+            (XdgDirectoryType::Cache, ".cache/devlog", "Unix cache directory"),
+            (XdgDirectoryType::State, ".local/state/devlog", "Unix state directory"),
+        ];
 
-        let temp_dir = TempDir::new().expect("Failed to create temp dir");
-        let test_app_name = "test_app";
+        for (dir_type, expected_suffix, description) in test_cases {
+            // Test fallback behavior by passing None as dirs_fn
+            let actual_path = get_xdg_directory(dir_type, "devlog", || None)
+                .expect(&format!("Should get {} path", description));
+            
+            let path_str = actual_path.to_string_lossy();
+            
+            assert!(
+                path_str.ends_with(expected_suffix),
+                "{} should end with '{}', got: '{}'",
+                description, expected_suffix, path_str
+            );
+            
+            assert!(
+                actual_path.exists(),
+                "{} should be created and exist",
+                description
+            );
+            
+            // Clean up test directory
+            let _ = std::fs::remove_dir_all(&actual_path);
+        }
+    }
 
-        // Test that the function creates directories properly
-        let result = get_xdg_directory(XdgDirectoryType::Config, test_app_name, || {
-            Some(temp_dir.path().to_path_buf())
-        });
+    #[test]
+    #[cfg(target_os = "macos")]
+    fn test_macos_directory_paths() {
+        // Test get_xdg_directory with devlog app name on macOS
+        let test_cases = [
+            (XdgDirectoryType::Config, "Library/Application Support/devlog", "macOS config directory"),
+            (XdgDirectoryType::Data, "Library/Application Support/devlog", "macOS data directory"),
+            (XdgDirectoryType::Cache, "Library/Caches/devlog", "macOS cache directory"),
+            (XdgDirectoryType::State, "Library/Application Support/devlog", "macOS state directory"),
+        ];
 
-        assert!(result.is_ok());
-        let config_dir = result.unwrap();
-        assert!(config_dir.exists());
-        assert!(config_dir.ends_with(test_app_name));
+        for (dir_type, expected_suffix, description) in test_cases {
+            // Test fallback behavior by passing None as dirs_fn
+            let actual_path = get_xdg_directory(dir_type, "devlog", || None)
+                .expect(&format!("Should get {} path", description));
+            
+            let path_str = actual_path.to_string_lossy();
+            
+            assert!(
+                path_str.ends_with(expected_suffix),
+                "{} should end with '{}', got: '{}'",
+                description, expected_suffix, path_str
+            );
+            
+            assert!(
+                actual_path.exists(),
+                "{} should be created and exist",
+                description
+            );
+            
+            // Clean up test directory  
+            let _ = std::fs::remove_dir_all(&actual_path);
+        }
     }
 }
