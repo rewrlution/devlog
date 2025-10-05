@@ -98,7 +98,8 @@ mod tests {
     /// Create a test storage instance in a temporary directory
     fn create_test_storage() -> (Storage, TempDir) {
         let temp_dir = TempDir::new().expect("Failed to create temp dir");
-        let storage = Storage::new(Some(temp_dir.path())).expect("Failed to create storage");
+        let storage =
+            Storage::new_with_base_dir(temp_dir.path()).expect("Failed to create storage");
         (storage, temp_dir)
     }
 

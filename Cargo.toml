@@ -8,11 +8,14 @@ description = "A journal cli tool built for developers"
 chrono = { version = "0.4.42", features = ["serde"] }
 clap = { version = "4.5.48", features = ["derive"] }
 color-eyre = "0.6.5"
+console = "0.16.1"
 crossterm = "0.29.0"
+dialoguer = "0.12.0"
 dirs = "6.0.0"
 ratatui = "0.29.0"
 serde = { version = "1.0.226", features = ["derive"] }
 serde_yaml = "0.9.34"
+toml = "0.9.7"
 unicode-width = "0.2.0"
 walkdir = "2.5.0"
 

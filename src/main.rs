@@ -1,8 +1,9 @@
 use clap::{Parser, Subcommand};
 
-use crate::storage::Storage;
+use crate::{commands::config::ConfigSubcommand, storage::Storage};
 
 mod commands;
+mod config;
 mod models;
 mod storage;
 mod tui;
@@ -43,11 +44,16 @@ enum Commands {
         #[arg(short, long)]
         interactive: bool,
     },
+    /// Configure Devlog settings
+    Config {
+        #[command(subcommand)]
+        subcmd: Option<ConfigSubcommand>,
+    },
 }
 
 fn main() {
     let cli = Cli::parse();
-    let storage = Storage::new(None).unwrap_or_else(|e| {
+    let storage = Storage::new().unwrap_or_else(|e| {
         eprintln!("Failed to initialize storage: {}", e);
         std::process::exit(1);
     });
@@ -57,6 +63,7 @@ fn main() {
         Commands::Edit { id } => commands::edit::execute(&storage, id),
         Commands::Show { id } => commands::show::execute(&storage, id),
         Commands::List { interactive } => commands::list::execute(&storage, interactive),
+        Commands::Config { subcmd } => commands::config::execute(subcmd),
     } {
         eprintln!("Error: {}", e);
         std::process::exit(1);
