@@ -45,7 +45,7 @@ pub fn launch_editor(existing_content: Option<&str>) -> Result<String> {
 
 /// Find the first available editor
 fn find_available_editor() -> String {
-    let editors = ["vi", "nano"];
+    let editors = ["vi", "vim", "nano"];
 
     for editor in editors {
         if process::Command::new(editor)
@@ -57,8 +57,8 @@ fn find_available_editor() -> String {
         }
     }
 
-    // Fallback to vi (should be available on most unix system)
-    "vi".to_string()
+    // Fallback to vim (should be available on most unix system)
+    "vim".to_string()
 }
 
 /// Get the initial template for new entries
